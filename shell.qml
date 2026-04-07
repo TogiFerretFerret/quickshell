@@ -1,0 +1,435 @@
+//@ pragma UseQApplication
+//@ pragma ShellId river-bar
+
+import Quickshell
+import Quickshell.Wayland
+import Quickshell.Hyprland
+import Quickshell.Io
+import Quickshell.Services.Mpris
+import Quickshell.Services.SystemTray
+import Quickshell.Services.Pipewire
+import Quickshell.Widgets
+import QtQuick
+import QtQuick.Layouts
+import "services" as Services
+import "components" as C
+
+Scope {
+    id: root
+
+    // ══════════════════════════════════════
+    // Theme (loaded from pywal/matugen colors.json)
+    // ══════════════════════════════════════
+    property color bg:        "#0e1120"
+    property color fg:        "#c2c3c7"
+    property color surface:   "#0e1120"
+    property color dim:       "#5d6172"
+    property color primary:   "#1376C6"
+    property color secondary: "#5E90B2"
+    property color accent:    "#2393D7"
+    property color cRed:      "#f38ba8"
+    property color cGreen:    "#a6e3a1"
+    property color cYellow:   "#f9e2af"
+    property color cMaroon:   "#eba0ac"
+    property color cPink:     "#f5c2e7"
+    property color pillBg:    Qt.rgba(bg.r, bg.g, bg.b, 0.85)
+    property color pillBorder: Qt.rgba(0.08, 0.42, 0.78, 0.5)
+    property string ff:       "JetBrainsMono Nerd Font"
+    property int fs:          15
+    property int pillH:       44
+    property int pillR:       22
+    property int pillPad:     28
+
+    onBgChanged: pillBg = Qt.rgba(bg.r, bg.g, bg.b, 0.85)
+
+    FileView {
+        id: walFile
+        path: Qt.resolvedUrl("file://" + Quickshell.env("HOME") + "/.cache/wal/colors.json")
+        watchChanges: true
+        onFileChanged: walFile.reload()
+        function apply() {
+            try {
+                var o = JSON.parse(walFile.text());
+                if (o.special) { root.bg = o.special.background; root.fg = o.special.foreground; }
+                if (o.colors) {
+                    root.surface = o.colors.color0; root.primary = o.colors.color4;
+                    root.secondary = o.colors.color5; root.accent = o.colors.color6;
+                    root.dim = o.colors.color8;
+                    var pR = parseInt(o.colors.color4.substr(1,2),16)/255;
+                    var pG = parseInt(o.colors.color4.substr(3,2),16)/255;
+                    var pB = parseInt(o.colors.color4.substr(5,2),16)/255;
+                    root.pillBorder = Qt.rgba(pR, pG, pB, 0.5);
+                }
+            } catch(e) {}
+        }
+        Component.onCompleted: apply()
+        onLoaded: apply()
+    }
+
+    // ══════════════════════════════════════
+    // Nerd font icons
+    // ══════════════════════════════════════
+    readonly property string iCpu:    String.fromCodePoint(0xf2db)
+    readonly property string iMem:    String.fromCodePoint(0xefc5)
+    readonly property string iTemp:   String.fromCodePoint(0xf050f)
+    readonly property string iVolOn:  String.fromCodePoint(0xf057e)
+    readonly property string iVolMute:String.fromCodePoint(0xf075f)
+    readonly property string iMicOn:  String.fromCodePoint(0xf036c)
+    readonly property string iMicOff: String.fromCodePoint(0xf036d)
+    readonly property string iBright: String.fromCodePoint(0xf00df)
+    readonly property string iNotif:  String.fromCodePoint(0xf009a)
+    readonly property string iPlay:   String.fromCodePoint(0xf040a)
+    readonly property string iPause:  String.fromCodePoint(0xf03e4)
+    readonly property string iCoffee: String.fromCodePoint(0xf0176)
+    readonly property string iSleep:  String.fromCodePoint(0xf04b2)
+
+    // ══════════════════════════════════════
+    // Services
+    // ══════════════════════════════════════
+    Services.SysInfo { id: sys }
+
+    property bool clockShowDate: false
+    property string clockTime: clockShowDate
+        ? Qt.formatDateTime(sysClock.date, "yyyy-MM-dd")
+        : Qt.formatDateTime(sysClock.date, "hh:mm AP")
+    property string calendarText: {
+        var d = sysClock.date;
+        var month = Qt.formatDateTime(d, "MMMM yyyy");
+        var today = d.getDate();
+        var first = new Date(d.getFullYear(), d.getMonth(), 1);
+        var lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        var startDay = first.getDay();
+        var cal = month + "\nMo Tu We Th Fr Sa Su\n";
+        var line = "   ".repeat(startDay === 0 ? 6 : startDay - 1);
+        for (var i = 1; i <= lastDay; i++) {
+            var ds = i < 10 ? " " + i : "" + i;
+            if (i === today) ds = "[" + i + "]";
+            line += (ds.length < 3 ? ds + " " : ds);
+            var dow = new Date(d.getFullYear(), d.getMonth(), i).getDay();
+            if (dow === 0) { cal += line.replace(/\s+$/, "") + "\n"; line = ""; }
+        }
+        if (line.trim()) cal += line.replace(/\s+$/, "");
+        return cal;
+    }
+    SystemClock { id: sysClock; precision: SystemClock.Seconds }
+
+    property var activePlayer: {
+        var pl = Mpris.players.values;
+        if (!pl || pl.length === 0) return null;
+        for (var i = 0; i < pl.length; i++)
+            if (pl[i].playbackState === MprisPlaybackState.Playing) return pl[i];
+        return pl[0];
+    }
+
+    PwObjectTracker { objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource] }
+
+    property bool idleInhibited: false
+    property bool battShowTime: false
+
+    // Launcher processes
+    Process { id: idleInhibitOn; command: ["sh", "-c", "pidof wayland-idle-inhibitor.py || wayland-idle-inhibitor.py &"] }
+    Process { id: idleInhibitOff; command: ["sh", "-c", "pkill -f wayland-idle-inhibitor"] }
+    Process { id: openBtop; command: ["ghostty", "-e", "btop"] }
+    Process { id: openDiskUsage; command: ["baobab"] }
+    Process { id: openPavucontrol; command: ["pavucontrol"] }
+    Process { id: blUp; command: ["brightnessctl", "s", "+5%"] }
+    Process { id: blDown; command: ["brightnessctl", "s", "5%-"] }
+    Process { id: swayncToggle; command: ["swaync-client", "-t", "-sw"] }
+    Process { id: swayncDnd; command: ["swaync-client", "-d", "-sw"] }
+    Process { id: powerProc; command: ["wlogout"] }
+
+    // ══════════════════════════════════════
+    // Bar
+    // ══════════════════════════════════════
+    Variants {
+        model: Quickshell.screens
+
+        PanelWindow {
+            id: bar
+            required property var modelData
+            screen: modelData
+
+            anchors { top: true; left: true; right: true }
+            margins.top: 5
+            implicitHeight: 52
+            color: "transparent"
+
+            // ── LEFT ──
+            Row {
+                anchors.left: parent.left; anchors.leftMargin: 10
+                anchors.bottom: parent.bottom; anchors.bottomMargin: 2
+                spacing: 6
+
+                C.Pill {
+                    label: root.iCpu + " " + sys.cpuUsage + "%"
+                    labelColor: root.primary; pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: root.pillPad
+                    fontFamily: root.ff; fontSize: root.fs
+                    tooltipText: sys.cpuDetail
+                    onClicked: openBtop.running = true
+                }
+
+                C.Pill {
+                    label: root.iMem + " " + sys.memUsage + "%"
+                    labelColor: root.primary; pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: root.pillPad
+                    fontFamily: root.ff; fontSize: root.fs
+                    tooltipText: sys.memDetail
+                    onClicked: openDiskUsage.running = true
+                }
+
+                C.Pill {
+                    label: root.iTemp + " " + sys.temperature + "°C"
+                    labelColor: sys.temperature >= 80 ? root.cRed : root.secondary
+                    pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: root.pillPad
+                    fontFamily: root.ff; fontSize: root.fs
+                    tooltipText: sys.tempDetail
+                }
+
+                C.Pill {
+                    label: {
+                        if (root.battShowTime && sys.battTimeRemaining)
+                            return sys.battIcon + " " + sys.battTimeRemaining;
+                        return sys.battIcon + " " + sys.battLevel + "%";
+                    }
+                    labelColor: sys.battCharging ? root.cGreen : sys.battLevel <= 20 ? root.cRed : sys.battLevel <= 30 ? root.cYellow : root.cGreen
+                    pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: root.pillPad
+                    fontFamily: root.ff; fontSize: root.fs
+                    tooltipText: sys.battCharging ? "Charging" : "Discharging"
+                    onClicked: root.battShowTime = !root.battShowTime
+                }
+
+                // Cava
+                Rectangle {
+                    height: root.pillH; width: 150; radius: root.pillR
+                    color: root.pillBg; border.width: 2; border.color: root.pillBorder
+                    visible: sys.cavaOutput !== ""; clip: true
+                    Behavior on color { ColorAnimation { duration: 250 } }
+                    Behavior on border.color { ColorAnimation { duration: 250 } }
+                    Text { anchors.centerIn: parent; text: sys.cavaOutput
+                        color: root.cPink; font { pixelSize: 14; family: "JetBrainsMono Nerd Font Mono"; letterSpacing: 0 } }
+                }
+
+                // Window title
+                Rectangle {
+                    height: root.pillH
+                    width: winT.text !== "" ? Math.max(winT.implicitWidth + root.pillPad, 40) : 0
+                    radius: root.pillR; color: root.pillBg; border.width: 2; border.color: root.pillBorder
+                    clip: true; visible: width > 0
+                    Behavior on color { ColorAnimation { duration: 250 } }
+                    Behavior on border.color { ColorAnimation { duration: 250 } }
+                    Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                    Text { id: winT; anchors.centerIn: parent
+                        property string raw: Hyprland.activeToplevel ? (Hyprland.activeToplevel.title || "") : ""
+                        text: raw.length > 25 ? raw.substring(0, 25) + "…" : raw
+                        color: root.dim; font { pixelSize: root.fs; family: root.ff } }
+                }
+            }
+
+            // ── CENTER ──
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom; anchors.bottomMargin: 2
+                spacing: 6
+
+                Rectangle {
+                    height: root.pillH; width: wsRow.implicitWidth + 20; radius: root.pillR
+                    color: root.pillBg; border.width: 2; border.color: root.pillBorder
+                    Behavior on color { ColorAnimation { duration: 250 } }
+                    Behavior on border.color { ColorAnimation { duration: 250 } }
+                    Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    Row {
+                        id: wsRow; anchors.centerIn: parent; spacing: 4
+                        Repeater {
+                            model: 10
+                            Rectangle {
+                                required property int index
+                                property int wsId: index + 1
+                                property bool active: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === wsId
+                                property bool occupied: {
+                                    var ws = Hyprland.workspaces.values;
+                                    if (!ws) return false;
+                                    for (var i = 0; i < ws.length; i++) if (ws[i].id === wsId) return true;
+                                    return false; }
+                                visible: occupied || active
+                                width: active ? 36 : 28; height: 32; radius: 16
+                                color: active ? root.primary : "transparent"
+                                scale: wsH.containsMouse ? 1.1 : 1.0
+                                Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                                Behavior on color { ColorAnimation { duration: 200 } }
+                                Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutBack } }
+                                Text { anchors.centerIn: parent; text: parent.wsId
+                                    color: parent.active ? root.bg : root.dim
+                                    font { pixelSize: root.fs; bold: parent.active; family: root.ff }
+                                    Behavior on color { ColorAnimation { duration: 200 } } }
+                                MouseArea { id: wsH; anchors.fill: parent; hoverEnabled: true
+                                    onClicked: Hyprland.dispatch("workspace " + parent.wsId) }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── RIGHT ──
+            Row {
+                anchors.right: parent.right; anchors.rightMargin: 10
+                anchors.bottom: parent.bottom; anchors.bottomMargin: 2
+                spacing: 6
+
+                // Idle Inhibitor
+                C.Pill {
+                    label: root.idleInhibited ? root.iCoffee : root.iSleep
+                    labelColor: root.idleInhibited ? root.accent : root.dim
+                    pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
+                    fontFamily: root.ff; fontSize: root.fs + 2; minWidth: root.pillH
+                    tooltipText: root.idleInhibited ? "Idle inhibitor ON" : "Idle inhibitor OFF"
+                    onClicked: { root.idleInhibited = !root.idleInhibited;
+                        if (root.idleInhibited) idleInhibitOn.running = true;
+                        else idleInhibitOff.running = true; }
+                }
+
+                // Volume + Mic
+                C.Pill {
+                    label: {
+                        var sink = Pipewire.defaultAudioSink;
+                        var src = Pipewire.defaultAudioSource;
+                        var vol = "";
+                        if (!sink || !sink.audio) vol = root.iVolOn + " --";
+                        else if (sink.audio.muted) vol = root.iVolMute;
+                        else vol = root.iVolOn + " " + Math.round(sink.audio.volume * 100) + "%";
+                        // Mic indicator
+                        if (src && src.audio && src.audio.muted) vol += " " + root.iMicOff;
+                        else if (src && src.audio) vol += " " + root.iMicOn;
+                        return vol;
+                    }
+                    labelColor: { var s = Pipewire.defaultAudioSink;
+                        return (s && s.audio && s.audio.muted) ? root.dim : root.primary; }
+                    pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 22
+                    fontFamily: root.ff; fontSize: root.fs
+                    tooltipText: {
+                        var sink = Pipewire.defaultAudioSink;
+                        var src = Pipewire.defaultAudioSource;
+                        var t = "";
+                        if (sink && sink.audio) t += "Output: " + Math.round(sink.audio.volume * 100) + "%" + (sink.audio.muted ? " (muted)" : "");
+                        if (src && src.audio) t += "\nInput: " + Math.round(src.audio.volume * 100) + "%" + (src.audio.muted ? " (muted)" : "");
+                        return t;
+                    }
+                    onClicked: mouse => {
+                        if (mouse.button === Qt.RightButton) { openPavucontrol.running = true; return; }
+                        var s = Pipewire.defaultAudioSink;
+                        if (s && s.audio) s.audio.muted = !s.audio.muted;
+                    }
+                    onWheel: wheel => { var s = Pipewire.defaultAudioSink; if (!s || !s.audio) return;
+                        s.audio.volume = Math.max(0, Math.min(1.5, s.audio.volume + (wheel.angleDelta.y > 0 ? 0.05 : -0.05))); }
+                }
+
+                // Backlight
+                C.Pill {
+                    label: root.iBright + " " + sys.brightness + "%"
+                    labelColor: root.cYellow; pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 22
+                    fontFamily: root.ff; fontSize: root.fs
+                    onWheel: wheel => {
+                        if (wheel.angleDelta.y > 0) blUp.running = true; else blDown.running = true;
+                        // Update immediately without waiting for poll
+                        sys.brightness = Math.max(0, Math.min(100,
+                            sys.brightness + (wheel.angleDelta.y > 0 ? 5 : -5)));
+                    }
+                }
+
+                // MPRIS
+                C.Pill {
+                    visible: root.activePlayer !== null
+                    label: { if (!root.activePlayer) return "";
+                        var icon = root.activePlayer.playbackState === MprisPlaybackState.Playing ? root.iPlay : root.iPause;
+                        var a = root.activePlayer.trackArtist || ""; var t = root.activePlayer.trackTitle || "";
+                        var info = a ? a + " - " + t : t;
+                        return icon + " " + (info.length > 20 ? info.substring(0, 20) + "…" : info); }
+                    labelColor: root.secondary; pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 22
+                    fontFamily: root.ff; fontSize: root.fs
+                    tooltipText: {
+                        if (!root.activePlayer) return "";
+                        var t = root.activePlayer.trackTitle || "Unknown";
+                        var a = root.activePlayer.trackArtist || "Unknown";
+                        var alb = root.activePlayer.trackAlbum || "";
+                        var pos = Math.floor(root.activePlayer.position || 0);
+                        var len = Math.floor(root.activePlayer.length || 0);
+                        var fmt = function(s) { return Math.floor(s/60) + ":" + ("0" + (s%60)).slice(-2); };
+                        var info = t + "\n" + a;
+                        if (alb) info += "\n" + alb;
+                        if (len > 0) info += "\n" + fmt(pos) + " / " + fmt(len);
+                        info += "\n" + (root.activePlayer.identity || "");
+                        return info;
+                    }
+                    onClicked: mouse => {
+                        if (!root.activePlayer) return;
+                        if (mouse.button === Qt.LeftButton) root.activePlayer.togglePlaying();
+                        else if (mouse.button === Qt.RightButton) root.activePlayer.next();
+                        else root.activePlayer.previous();
+                    }
+                }
+
+                // System Tray
+                Rectangle {
+                    height: root.pillH; width: trayRow.implicitWidth + 16; radius: root.pillR
+                    color: root.pillBg; border.width: 2; border.color: root.pillBorder
+                    visible: trayRepeater.count > 0
+                    Behavior on color { ColorAnimation { duration: 250 } }
+                    Behavior on border.color { ColorAnimation { duration: 250 } }
+                    Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    Row { id: trayRow; anchors.centerIn: parent; spacing: 6
+                        Repeater { id: trayRepeater; model: SystemTray.items
+                            MouseArea { id: trayItem; required property SystemTrayItem modelData
+                                width: 22; height: 22
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                                onClicked: mouse => {
+                                    if (mouse.button === Qt.LeftButton) trayItem.modelData.activate();
+                                    else if (mouse.button === Qt.RightButton && trayItem.modelData.hasMenu) trayMenu.open();
+                                    else if (mouse.button === Qt.MiddleButton) trayItem.modelData.secondaryActivate(); }
+                                IconImage { anchors.centerIn: parent; source: trayItem.modelData.icon; implicitSize: 20 }
+                                QsMenuAnchor { id: trayMenu; menu: trayItem.modelData.menu; anchor.window: bar
+                                    anchor.adjustment: PopupAdjustment.Flip
+                                    anchor.onAnchoring: { var rect = bar.contentItem.mapFromItem(trayItem, 0, trayItem.height, trayItem.width, trayItem.height); trayMenu.anchor.rect = rect; } }
+                            }
+                        }
+                    }
+                }
+
+                // SwayNC
+                C.Pill {
+                    label: root.iNotif; labelColor: root.accent
+                    pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
+                    fontFamily: root.ff; fontSize: root.fs + 2; minWidth: root.pillH
+                    onClicked: mouse => {
+                        if (mouse.button === Qt.LeftButton) swayncToggle.running = true;
+                        else swayncDnd.running = true; }
+                }
+
+                // Clock
+                C.Pill {
+                    label: root.clockTime; labelColor: root.fg
+                    pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 22
+                    fontFamily: root.ff; fontSize: root.fs
+                    tooltipText: root.calendarText
+                    onClicked: root.clockShowDate = !root.clockShowDate
+                }
+
+                // Power
+                C.Pill {
+                    label: "⏻"; labelColor: root.cMaroon
+                    pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
+                    fontFamily: root.ff; fontSize: root.fs + 2; minWidth: root.pillH
+                    onClicked: powerProc.running = true
+                }
+            }
+        }
+    }
+}
