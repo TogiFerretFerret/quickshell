@@ -11,7 +11,7 @@ Item {
     property int fontSize: 15
     property int minWidth: 0
     property bool interactive: true
-    property real hoverScale: 1.04
+    property real hoverScale: 1.034
     property int animDuration: 250
     property bool fixedWidth: false
 

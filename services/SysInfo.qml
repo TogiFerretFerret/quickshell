@@ -111,7 +111,7 @@ Item {
     }
 
     Process { id: tempDetailProc; command: ["sh", "-c",
-        "paste <(cat /sys/class/thermal/thermal_zone*/type) <(cat /sys/class/thermal/thermal_zone*/temp) 2>/dev/null | awk '{printf \"%s: %d°C\\n\", $1, $2/1000}'"]; running: true
+        "sensors 2>/dev/null | grep -E '°C|Temp|temp|Power|Watt' | sed 's/^  *//' | head -15"]; running: true
         stdout: StdioCollector { onStreamFinished: { sysInfo.tempDetail = text.trim(); } }
     }
 

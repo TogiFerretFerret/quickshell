@@ -1,7 +1,9 @@
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Mpris
+import Quickshell.Io
 import QtQuick
+import "../services" as Services
 
 PanelWindow {
     id: mprisPopup
@@ -23,49 +25,41 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     exclusionMode: ExclusionMode.Ignore
 
-    // Clipping container
-    Item {
-        anchors.fill: parent; clip: true
-        layer.enabled: true
-
-        Rectangle {
-            anchors.fill: parent; radius: 14
-            color: Qt.rgba(mprisPopup.bg.r, mprisPopup.bg.g, mprisPopup.bg.b, 0.85)
-        }
-
-        // Album art background (dimmed)
-        Image {
-            anchors.fill: parent; fillMode: Image.PreserveAspectCrop; opacity: 0.2
-            source: mprisPopup.player ? mprisPopup.player.trackArtUrl : ""
-        }
-
-        // Dark overlay
-        Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, 0.4) }
+    Services.ArtProcessor {
+        id: artProc
+        sourceUrl: mprisPopup.player ? mprisPopup.player.trackArtUrl : ""
     }
 
-    // Border on top (not clipped)
+    // Background with pre-rounded art
     Rectangle {
-        anchors.fill: parent; radius: 14; color: "transparent"
+        id: mainBg
+        anchors.fill: parent; radius: 14
+        color: Qt.rgba(mprisPopup.bg.r, mprisPopup.bg.g, mprisPopup.bg.b, 0.92)
         border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.08)
+
+        // Rounded bg art from imagemagick
+        Image {
+            anchors.fill: parent; opacity: 0.25
+            source: artProc.bgPath; fillMode: Image.Stretch
+            visible: status === Image.Ready
+        }
 
         Row {
             anchors.fill: parent; anchors.margins: 14; spacing: 14
 
-            // Album art with rounding
+            // Rounded album art thumbnail from imagemagick
+            Image {
+                id: albumArt
+                width: 140; height: 140
+                source: artProc.roundedPath; fillMode: Image.Stretch
+                visible: status === Image.Ready
+            }
+
+            // Fallback
             Rectangle {
-                width: 140; height: 140; radius: 14; clip: true
+                width: 140; height: 140; radius: 14; visible: !albumArt.visible
                 color: Qt.rgba(1, 1, 1, 0.04)
-
-                Image {
-                    id: albumArt
-                    anchors.fill: parent
-                    source: mprisPopup.player ? mprisPopup.player.trackArtUrl : ""
-                    fillMode: Image.PreserveAspectCrop
-                }
-
-                // Fallback icon
-                Text { anchors.centerIn: parent; visible: albumArt.status !== Image.Ready
-                    text: String.fromCodePoint(0xf0388)
+                Text { anchors.centerIn: parent; text: String.fromCodePoint(0xf0388)
                     color: mprisPopup.dim; font { pixelSize: 40; family: mprisPopup.fontFamily } }
             }
 

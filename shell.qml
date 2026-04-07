@@ -170,10 +170,10 @@ Scope {
         title: "CPU"; content: sys.cpuDetail; popupX: 10 }
 
     C.InfoPopup { id: memPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
-        title: "Memory & Disk"; content: sys.memDetail; popupX: 120 }
+        title: "Memory & Disk"; content: sys.memDetail; popupX: 100 }
 
     C.InfoPopup { id: tempPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
-        title: "Thermals"; content: sys.tempDetail; popupX: 230 }
+        title: "Thermals"; content: sys.tempDetail; popupX: 210 }
 
     C.BrightnessPopup { id: blPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
         yellow: root.cYellow; brightness: sys.brightness }
