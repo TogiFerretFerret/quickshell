@@ -78,6 +78,7 @@ Scope {
     readonly property string iMicOff: String.fromCodePoint(0xf036d)
     readonly property string iBright: String.fromCodePoint(0xf00df)
     readonly property string iNotif:  String.fromCodePoint(0xf009a)
+    readonly property string iNotifOff: String.fromCodePoint(0xf009b) // bell-off
     readonly property string iPlay:   String.fromCodePoint(0xf040a)
     readonly property string iPause:  String.fromCodePoint(0xf03e4)
     readonly property string iCoffee: String.fromCodePoint(0xf0176)
@@ -125,6 +126,7 @@ Scope {
 
     property bool idleInhibited: false
     property bool battShowTime: false
+    property bool dndActive: false
 
     // Launcher processes
     Process { id: idleInhibitOn; command: ["sh", "-c", "pidof wayland-idle-inhibitor.py || wayland-idle-inhibitor.py &"] }
@@ -135,7 +137,11 @@ Scope {
     Process { id: blUp; command: ["brightnessctl", "s", "+5%"] }
     Process { id: blDown; command: ["brightnessctl", "s", "5%-"] }
     Process { id: swayncToggle; command: ["swaync-client", "-t", "-sw"] }
-    Process { id: swayncDnd; command: ["swaync-client", "-d", "-sw"] }
+    Process { id: swayncDnd; command: ["swaync-client", "-d", "-sw"]
+        onRunningChanged: if (!running) dndPoll.running = true }
+    Process { id: dndPoll; command: ["swaync-client", "-D"]; running: true
+        stdout: SplitParser { onRead: data => { root.dndActive = data.trim() === "true"; } } }
+    Timer { interval: 3000; running: true; repeat: true; onTriggered: dndPoll.running = true }
     // Power menu overlay
     C.PowerMenu {
         id: powerMenu
@@ -464,7 +470,8 @@ Scope {
 
                 // SwayNC
                 C.Pill {
-                    label: root.iNotif; labelColor: root.accent
+                    label: root.dndActive ? root.iNotifOff : root.iNotif
+                    labelColor: root.dndActive ? root.dim : root.accent
                     pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
                     fontFamily: root.ff; fontSize: root.fs + 2; minWidth: root.pillH
