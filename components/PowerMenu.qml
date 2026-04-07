@@ -3,7 +3,6 @@ import Quickshell.Wayland
 import Quickshell.Io
 import QtQuick
 
-// Fullscreen power menu overlay
 PanelWindow {
     id: pmWindow
 
@@ -19,6 +18,8 @@ PanelWindow {
     property string fontFamily: "JetBrainsMono Nerd Font"
 
     property bool showing: false
+    property string uptimeStr: ""
+    property string wallpaperPath: ""
 
     visible: showing
     anchors { top: true; bottom: true; left: true; right: true }
@@ -27,175 +28,158 @@ PanelWindow {
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     color: "transparent"
 
+    // Fetch uptime + current wallpaper on show
+    Process { id: uptimeProc; command: ["sh", "-c", "uptime -p | sed 's/up //'"]
+        stdout: SplitParser { onRead: data => { pmWindow.uptimeStr = data.trim(); } } }
+    Process { id: wpProc; command: ["sh", "-c", "cat ~/.cache/wallpaper-colors/current 2>/dev/null"]
+        stdout: SplitParser { onRead: data => { pmWindow.wallpaperPath = "file://" + data.trim(); } } }
+
+    onShowingChanged: if (showing) { uptimeProc.running = true; wpProc.running = true; }
+
     // Dark backdrop
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.74)
         opacity: pmWindow.showing ? 1.0 : 0.0
         Behavior on opacity { NumberAnimation { duration: 200 } }
-
-        MouseArea {
-            anchors.fill: parent
-            onClicked: pmWindow.showing = false
-        }
+        MouseArea { anchors.fill: parent; onClicked: pmWindow.showing = false }
     }
 
-    // Title
-    Text {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: parent.height * 0.2
-        text: "Power Menu"
-        color: pmWindow.fg
-        font { pixelSize: 28; family: pmWindow.fontFamily; bold: true }
+    // Center card
+    Column {
+        anchors.centerIn: parent; spacing: 20
         opacity: pmWindow.showing ? 1.0 : 0.0
-        Behavior on opacity { NumberAnimation { duration: 300 } }
-    }
-
-    // Button grid
-    Row {
-        anchors.centerIn: parent
-        spacing: 30
-        opacity: pmWindow.showing ? 1.0 : 0.0
-        scale: pmWindow.showing ? 1.0 : 0.85
+        scale: pmWindow.showing ? 1.0 : 0.9
         Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
         Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
 
-        // Shutdown
+        // User card with wallpaper bg
         Rectangle {
-            width: 140; height: 160; radius: 24
-            color: shutdownMA.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
-            border.width: 2; border.color: shutdownMA.containsMouse ? pmWindow.red : Qt.rgba(1, 1, 1, 0.08)
-            scale: shutdownMA.containsMouse ? 1.05 : 1.0
-            Behavior on color { ColorAnimation { duration: 200 } }
-            Behavior on border.color { ColorAnimation { duration: 200 } }
-            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-            Column { anchors.centerIn: parent; spacing: 12
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: String.fromCodePoint(0xf0425)
-                    color: pmWindow.red; font { pixelSize: 42; family: pmWindow.fontFamily } }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Shutdown"
-                    color: pmWindow.fg; font { pixelSize: 14; family: pmWindow.fontFamily } }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "S"
-                    color: pmWindow.dim; font { pixelSize: 11; family: pmWindow.fontFamily } }
+            width: 360; height: 160; radius: 20; clip: true
+            color: Qt.rgba(0.08, 0.08, 0.12, 0.9)
+            layer.enabled: true
+
+            Image {
+                anchors.fill: parent; fillMode: Image.PreserveAspectCrop
+                source: pmWindow.wallpaperPath; opacity: 0.3
             }
-            MouseArea { id: shutdownMA; anchors.fill: parent; hoverEnabled: true
-                onClicked: { pmWindow.showing = false; shutdownProc.running = true; } }
-            Process { id: shutdownProc; command: ["shutdown", "now"] }
+            Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, 0.4) }
+
+            Column {
+                anchors.centerIn: parent; spacing: 8
+
+                // User icon
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: String.fromCodePoint(0xf0004); color: pmWindow.fg
+                    font { pixelSize: 32; family: pmWindow.fontFamily }
+                }
+
+                // Username
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: Quickshell.env("USER") || "user"
+                    color: pmWindow.fg
+                    font { pixelSize: 18; family: pmWindow.fontFamily; bold: true }
+                }
+
+                // Uptime
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter; spacing: 6
+                    Text { text: String.fromCodePoint(0xf0954); color: pmWindow.dim
+                        font { pixelSize: 13; family: pmWindow.fontFamily } }
+                    Text { text: "Uptime: " + pmWindow.uptimeStr; color: pmWindow.dim
+                        font { pixelSize: 13; family: pmWindow.fontFamily } }
+                }
+            }
         }
 
-        // Reboot
-        Rectangle {
-            width: 140; height: 160; radius: 24
-            color: rebootMA.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
-            border.width: 2; border.color: rebootMA.containsMouse ? pmWindow.primary : Qt.rgba(1, 1, 1, 0.08)
-            scale: rebootMA.containsMouse ? 1.05 : 1.0
-            Behavior on color { ColorAnimation { duration: 200 } }
-            Behavior on border.color { ColorAnimation { duration: 200 } }
-            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-            Column { anchors.centerIn: parent; spacing: 12
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: String.fromCodePoint(0xf0709)
-                    color: pmWindow.primary; font { pixelSize: 42; family: pmWindow.fontFamily } }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Reboot"
-                    color: pmWindow.fg; font { pixelSize: 14; family: pmWindow.fontFamily } }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "R"
-                    color: pmWindow.dim; font { pixelSize: 11; family: pmWindow.fontFamily } }
+        // Power buttons row
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter; spacing: 14
+
+            // Lock
+            Rectangle {
+                width: 64; height: 64; radius: 16
+                color: lockMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Text { anchors.centerIn: parent; text: String.fromCodePoint(0xf033e)
+                    color: pmWindow.green; font { pixelSize: 24; family: pmWindow.fontFamily } }
+                MouseArea { id: lockMA; anchors.fill: parent; hoverEnabled: true
+                    onClicked: { pmWindow.showing = false; lockProc.running = true; } }
             }
-            MouseArea { id: rebootMA; anchors.fill: parent; hoverEnabled: true
-                onClicked: { pmWindow.showing = false; rebootProc.running = true; } }
-            Process { id: rebootProc; command: ["reboot"] }
+
+            // Logout
+            Rectangle {
+                width: 64; height: 64; radius: 16
+                color: logMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Text { anchors.centerIn: parent; text: String.fromCodePoint(0xf0343)
+                    color: pmWindow.yellow; font { pixelSize: 24; family: pmWindow.fontFamily } }
+                MouseArea { id: logMA; anchors.fill: parent; hoverEnabled: true
+                    onClicked: { pmWindow.showing = false; logoutProc.running = true; } }
+            }
+
+            // Shutdown
+            Rectangle {
+                width: 64; height: 64; radius: 16
+                color: sdMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Text { anchors.centerIn: parent; text: String.fromCodePoint(0xf0425)
+                    color: pmWindow.red; font { pixelSize: 24; family: pmWindow.fontFamily } }
+                MouseArea { id: sdMA; anchors.fill: parent; hoverEnabled: true
+                    onClicked: { pmWindow.showing = false; shutdownProc.running = true; } }
+            }
         }
 
-        // Lock
-        Rectangle {
-            width: 140; height: 160; radius: 24
-            color: lockMA.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
-            border.width: 2; border.color: lockMA.containsMouse ? pmWindow.green : Qt.rgba(1, 1, 1, 0.08)
-            scale: lockMA.containsMouse ? 1.05 : 1.0
-            Behavior on color { ColorAnimation { duration: 200 } }
-            Behavior on border.color { ColorAnimation { duration: 200 } }
-            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-            Column { anchors.centerIn: parent; spacing: 12
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: String.fromCodePoint(0xf033e)
-                    color: pmWindow.green; font { pixelSize: 42; family: pmWindow.fontFamily } }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Lock"
-                    color: pmWindow.fg; font { pixelSize: 14; family: pmWindow.fontFamily } }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "L"
-                    color: pmWindow.dim; font { pixelSize: 11; family: pmWindow.fontFamily } }
-            }
-            MouseArea { id: lockMA; anchors.fill: parent; hoverEnabled: true
-                onClicked: { pmWindow.showing = false; lockProc.running = true; } }
-            Process { id: lockProc; command: ["sh", "-c", "sleep 0.5; hyprlock"] }
-        }
+        // Bottom row
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter; spacing: 14
 
-        // Logout
-        Rectangle {
-            width: 140; height: 160; radius: 24
-            color: logoutMA.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
-            border.width: 2; border.color: logoutMA.containsMouse ? pmWindow.yellow : Qt.rgba(1, 1, 1, 0.08)
-            scale: logoutMA.containsMouse ? 1.05 : 1.0
-            Behavior on color { ColorAnimation { duration: 200 } }
-            Behavior on border.color { ColorAnimation { duration: 200 } }
-            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-            Column { anchors.centerIn: parent; spacing: 12
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: String.fromCodePoint(0xf0343)
-                    color: pmWindow.yellow; font { pixelSize: 42; family: pmWindow.fontFamily } }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Logout"
-                    color: pmWindow.fg; font { pixelSize: 14; family: pmWindow.fontFamily } }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "E"
-                    color: pmWindow.dim; font { pixelSize: 11; family: pmWindow.fontFamily } }
+            // Reboot
+            Rectangle {
+                width: 64; height: 64; radius: 16
+                color: rbMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Text { anchors.centerIn: parent; text: String.fromCodePoint(0xf0709)
+                    color: pmWindow.primary; font { pixelSize: 24; family: pmWindow.fontFamily } }
+                MouseArea { id: rbMA; anchors.fill: parent; hoverEnabled: true
+                    onClicked: { pmWindow.showing = false; rebootProc.running = true; } }
             }
-            MouseArea { id: logoutMA; anchors.fill: parent; hoverEnabled: true
-                onClicked: { pmWindow.showing = false; logoutProc.running = true; } }
-            Process { id: logoutProc; command: ["sh", "-c", "sudo systemctl restart sddm; hyprctl dispatch exit 0"] }
-        }
 
-        // Sleep
-        Rectangle {
-            width: 140; height: 160; radius: 24
-            color: sleepMA.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
-            border.width: 2; border.color: sleepMA.containsMouse ? pmWindow.cyan : Qt.rgba(1, 1, 1, 0.08)
-            scale: sleepMA.containsMouse ? 1.05 : 1.0
-            Behavior on color { ColorAnimation { duration: 200 } }
-            Behavior on border.color { ColorAnimation { duration: 200 } }
-            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-            Column { anchors.centerIn: parent; spacing: 12
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: String.fromCodePoint(0xf04b2)
-                    color: pmWindow.cyan; font { pixelSize: 42; family: pmWindow.fontFamily } }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Sleep"
-                    color: pmWindow.fg; font { pixelSize: 14; family: pmWindow.fontFamily } }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "P"
-                    color: pmWindow.dim; font { pixelSize: 11; family: pmWindow.fontFamily } }
+            // Sleep
+            Rectangle {
+                width: 64; height: 64; radius: 16
+                color: slMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Text { anchors.centerIn: parent; text: String.fromCodePoint(0xf04b2)
+                    color: pmWindow.cyan; font { pixelSize: 24; family: pmWindow.fontFamily } }
+                MouseArea { id: slMA; anchors.fill: parent; hoverEnabled: true
+                    onClicked: { pmWindow.showing = false; sleepProc.running = true; } }
             }
-            MouseArea { id: sleepMA; anchors.fill: parent; hoverEnabled: true
-                onClicked: { pmWindow.showing = false; sleepProc.running = true; } }
-            Process { id: sleepProc; command: ["systemctl", "suspend"] }
-        }
 
-        // Hibernate
-        Rectangle {
-            width: 140; height: 160; radius: 24
-            color: hibMA.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
-            border.width: 2; border.color: hibMA.containsMouse ? pmWindow.purple : Qt.rgba(1, 1, 1, 0.08)
-            scale: hibMA.containsMouse ? 1.05 : 1.0
-            Behavior on color { ColorAnimation { duration: 200 } }
-            Behavior on border.color { ColorAnimation { duration: 200 } }
-            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-            Column { anchors.centerIn: parent; spacing: 12
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: String.fromCodePoint(0xf06c6)
-                    color: pmWindow.purple; font { pixelSize: 42; family: pmWindow.fontFamily } }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Hibernate"
-                    color: pmWindow.fg; font { pixelSize: 14; family: pmWindow.fontFamily } }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "H"
-                    color: pmWindow.dim; font { pixelSize: 11; family: pmWindow.fontFamily } }
+            // Hibernate
+            Rectangle {
+                width: 64; height: 64; radius: 16
+                color: hibMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Text { anchors.centerIn: parent; text: String.fromCodePoint(0xf06c6)
+                    color: pmWindow.purple; font { pixelSize: 24; family: pmWindow.fontFamily } }
+                MouseArea { id: hibMA; anchors.fill: parent; hoverEnabled: true
+                    onClicked: { pmWindow.showing = false; hibProc.running = true; } }
             }
-            MouseArea { id: hibMA; anchors.fill: parent; hoverEnabled: true
-                onClicked: { pmWindow.showing = false; hibProc.running = true; } }
-            Process { id: hibProc; command: ["systemctl", "hibernate"] }
         }
     }
 
+    // Processes
+    Process { id: shutdownProc; command: ["shutdown", "now"] }
+    Process { id: rebootProc; command: ["reboot"] }
+    Process { id: lockProc; command: ["sh", "-c", "sleep 0.5; hyprlock"] }
+    Process { id: logoutProc; command: ["sh", "-c", "sudo systemctl restart sddm; hyprctl dispatch exit 0"] }
+    Process { id: sleepProc; command: ["systemctl", "suspend"] }
+    Process { id: hibProc; command: ["systemctl", "hibernate"] }
 
-    // Keyboard handling
+    // Keyboard
     Shortcut { sequence: "Escape"; onActivated: pmWindow.showing = false }
     Shortcut { sequence: "s"; onActivated: { pmWindow.showing = false; shutdownProc.running = true; } }
     Shortcut { sequence: "r"; onActivated: { pmWindow.showing = false; rebootProc.running = true; } }
