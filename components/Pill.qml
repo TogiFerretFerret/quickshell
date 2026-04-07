@@ -13,6 +13,7 @@ Item {
     property bool interactive: true
     property real hoverScale: 1.04
     property int animDuration: 250
+    property bool fixedWidth: false
 
     // Pill appearance (set by parent)
     property color pillBg: "#111318"
@@ -52,12 +53,13 @@ Item {
             anchors.centerIn: parent
             text: pill.label
             color: pill.labelColor
+            textFormat: pill.label.indexOf("<") >= 0 ? Text.RichText : Text.PlainText
             font { pixelSize: pill.fontSize; family: pill.fontFamily }
             Behavior on color { ColorAnimation { duration: pill.animDuration } }
         }
     }
 
-    Behavior on implicitWidth { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+    Behavior on implicitWidth { enabled: !pill.fixedWidth; NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
     MouseArea {
         id: ma

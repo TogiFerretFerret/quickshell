@@ -138,10 +138,13 @@ Scope {
     Process { id: blDown; command: ["brightnessctl", "s", "5%-"] }
     Process { id: swayncToggle; command: ["swaync-client", "-t", "-sw"] }
     Process { id: swayncDnd; command: ["swaync-client", "-d", "-sw"]
-        onRunningChanged: if (!running) dndPoll.running = true }
-    Process { id: dndPoll; command: ["swaync-client", "-D"]; running: true
-        stdout: SplitParser { onRead: data => { root.dndActive = data.trim() === "true"; } } }
-    Timer { interval: 3000; running: true; repeat: true; onTriggered: dndPoll.running = true }
+        onRunningChanged: if (!running) root.dndActive = !root.dndActive }
+    // Subscribe to swaync status changes (long-running, fires on every state change)
+    Process { id: dndWatch; command: ["swaync-client", "-swb"]; running: true
+        stdout: SplitParser { onRead: data => {
+            try { var j = JSON.parse(data); root.dndActive = (j.alt || "").indexOf("dnd") >= 0; } catch(e) {}
+        }}
+    }
     // Power menu overlay
     C.PowerMenu {
         id: powerMenu
@@ -169,7 +172,7 @@ Scope {
 
             anchors { top: true; left: true; right: true }
             margins.top: 5
-            implicitHeight: 52
+            implicitHeight: 49
             color: "transparent"
 
             // Tooltip rendered at bar level (not clipped by Row)
@@ -207,10 +210,11 @@ Scope {
                 spacing: 6
 
                 C.Pill {
-                    label: root.iCpu + " " + sys.cpuUsage + "%"
+                    function pad(n) { return n < 10 ? "  " + n : n < 100 ? " " + n : "" + n; }
+                    label: root.iCpu + " " + pad(sys.cpuUsage) + "%"
                     labelColor: root.primary; pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: root.pillPad
-                    fontFamily: root.ff; fontSize: root.fs
+                    fontFamily: root.ff; fontSize: root.fs; minWidth: 105; fixedWidth: true
                     tooltipText: sys.cpuDetail
                     onClicked: openBtop.running = true
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
@@ -218,10 +222,11 @@ Scope {
                 }
 
                 C.Pill {
-                    label: root.iMem + " " + sys.memUsage + "%"
-                    labelColor: root.primary; pillBg: root.pillBg; pillBorder: root.pillBorder
+                    function pad(n) { return n < 10 ? "  " + n : n < 100 ? " " + n : "" + n; }
+                    label: root.iMem + " " + pad(sys.memUsage) + "%"
+                    labelColor: root.accent; pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: root.pillPad
-                    fontFamily: root.ff; fontSize: root.fs
+                    fontFamily: root.ff; fontSize: root.fs; minWidth: 105; fixedWidth: true
                     tooltipText: sys.memDetail
                     onClicked: openDiskUsage.running = true
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
@@ -240,16 +245,12 @@ Scope {
                 }
 
                 C.Pill {
-                    label: {
-                        if (root.battShowTime && sys.battTimeRemaining)
-                            return sys.battIcon + " " + sys.battTimeRemaining;
-                        return sys.battIcon + " " + sys.battLevel + "%";
-                    }
+                    label: { if (root.battShowTime && sys.battTimeRemaining) return sys.battIcon + " " + sys.battTimeRemaining;
+                        return sys.battIcon + " " + sys.battLevel + "%"; }
                     labelColor: sys.battCharging ? root.cGreen : sys.battLevel <= 20 ? root.cRed : sys.battLevel <= 30 ? root.cYellow : root.cGreen
                     pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: root.pillPad
                     fontFamily: root.ff; fontSize: root.fs
-                    tooltipText: sys.battCharging ? "Charging" : "Discharging"
                     onClicked: root.battShowTime = !root.battShowTime
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
                     onTooltipHide: root.ttVisible = false
@@ -356,7 +357,6 @@ Scope {
                         if (!sink || !sink.audio) vol = root.iVolOn + " --";
                         else if (sink.audio.muted) vol = root.iVolMute;
                         else vol = root.iVolOn + " " + Math.round(sink.audio.volume * 100) + "%";
-                        // Mic indicator
                         if (src && src.audio && src.audio.muted) vol += " " + root.iMicOff;
                         else if (src && src.audio) vol += " " + root.iMicOn;
                         return vol;
@@ -370,20 +370,15 @@ Scope {
                         var sink = Pipewire.defaultAudioSink;
                         var src = Pipewire.defaultAudioSource;
                         var t = "";
-                        if (sink) {
-                            t += (sink.name || "Output");
-                            if (sink.audio) t += ": " + Math.round(sink.audio.volume * 100) + "%" + (sink.audio.muted ? " (muted)" : "");
-                        }
-                        if (src) {
-                            t += "\n" + (src.name || "Input");
-                            if (src.audio) t += ": " + Math.round(src.audio.volume * 100) + "%" + (src.audio.muted ? " (muted)" : "");
-                        }
+                        if (sink) { t += (sink.name || "Output");
+                            if (sink.audio) t += ": " + Math.round(sink.audio.volume * 100) + "%" + (sink.audio.muted ? " (muted)" : ""); }
+                        if (src) { t += "\n" + (src.name || "Input");
+                            if (src.audio) t += ": " + Math.round(src.audio.volume * 100) + "%" + (src.audio.muted ? " (muted)" : ""); }
                         return t;
                     }
                     onClicked: mouse => {
                         if (mouse.button === Qt.RightButton) { openPavucontrol.running = true; return; }
-                        var s = Pipewire.defaultAudioSink;
-                        if (s && s.audio) s.audio.muted = !s.audio.muted;
+                        var s = Pipewire.defaultAudioSink; if (s && s.audio) s.audio.muted = !s.audio.muted;
                     }
                     onWheel: wheel => { var s = Pipewire.defaultAudioSink; if (!s || !s.audio) return;
                         s.audio.volume = Math.max(0, Math.min(1.5, s.audio.volume + (wheel.angleDelta.y > 0 ? 0.05 : -0.05))); }
@@ -399,9 +394,7 @@ Scope {
                     fontFamily: root.ff; fontSize: root.fs
                     onWheel: wheel => {
                         if (wheel.angleDelta.y > 0) blUp.running = true; else blDown.running = true;
-                        // Update immediately without waiting for poll
-                        sys.brightness = Math.max(0, Math.min(100,
-                            sys.brightness + (wheel.angleDelta.y > 0 ? 5 : -5)));
+                        sys.brightness = Math.max(0, Math.min(100, sys.brightness + (wheel.angleDelta.y > 0 ? 5 : -5)));
                     }
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
                     onTooltipHide: root.ttVisible = false
