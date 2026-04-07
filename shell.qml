@@ -413,22 +413,6 @@ Scope {
                     onTooltipHide: root.ttVisible = false
                 }
 
-                // Bluetooth
-                C.Pill {
-                    readonly property string iBt: String.fromCodePoint(0xf00af)
-                    readonly property string iBtConn: String.fromCodePoint(0xf00b1)
-                    property int btCount: Bluetooth.devices ? Bluetooth.devices.values.length : 0
-                    property bool btOn: Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.enabled : false
-                    label: btCount > 0 ? iBtConn + " " + btCount : iBt
-                    labelColor: btCount > 0 ? root.primary : root.dim
-                    pillBg: root.pillBg; pillBorder: root.pillBorder
-                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
-                    fontFamily: root.ff; fontSize: root.fs; minWidth: root.pillH
-                    onClicked: btPopup.showing = !btPopup.showing
-                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
-                    onTooltipHide: root.ttVisible = false
-                }
-
                 // MPRIS
                 C.Pill {
                     visible: root.activePlayer !== null
@@ -488,6 +472,21 @@ Scope {
                             }
                         }
                     }
+                }
+
+                // Bluetooth (next to tray)
+                C.Pill {
+                    readonly property string iBt: String.fromCodePoint(0xf00af)
+                    readonly property string iBtConn: String.fromCodePoint(0xf00b1)
+                    property int btCount: Bluetooth.devices ? Bluetooth.devices.values.length : 0
+                    label: btCount > 0 ? iBtConn + " " + btCount : iBt
+                    labelColor: btCount > 0 ? root.primary : root.dim
+                    pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
+                    fontFamily: root.ff; fontSize: root.fs; minWidth: root.pillH
+                    onClicked: btPopup.showing = !btPopup.showing
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
                 }
 
                 // SwayNC

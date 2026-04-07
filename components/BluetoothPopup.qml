@@ -19,7 +19,7 @@ PanelWindow {
     visible: showing
     anchors { top: true; right: true }
     margins.top: 58
-    margins.right: 80
+    margins.right: 10
     implicitWidth: 320
     implicitHeight: btContent.implicitHeight + 32
     color: "transparent"
