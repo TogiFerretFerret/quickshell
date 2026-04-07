@@ -9,6 +9,7 @@ import Quickshell.Services.Mpris
 import Quickshell.Services.SystemTray
 import Quickshell.Services.Pipewire
 import Quickshell.Widgets
+import Quickshell.Bluetooth
 import QtQuick
 import QtQuick.Layouts
 import "services" as Services
@@ -145,6 +146,18 @@ Scope {
             try { var j = JSON.parse(data); root.dndActive = (j.alt || "").indexOf("dnd") >= 0; } catch(e) {}
         }}
     }
+    // Popups
+    C.CalendarPopup {
+        id: calendarPopup
+        bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+    }
+
+    C.BluetoothPopup {
+        id: btPopup
+        bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+        red: root.cRed; green: root.cGreen
+    }
+
     // Power menu overlay
     C.PowerMenu {
         id: powerMenu
@@ -400,6 +413,22 @@ Scope {
                     onTooltipHide: root.ttVisible = false
                 }
 
+                // Bluetooth
+                C.Pill {
+                    readonly property string iBt: String.fromCodePoint(0xf00af)
+                    readonly property string iBtConn: String.fromCodePoint(0xf00b1)
+                    property int btCount: Bluetooth.devices ? Bluetooth.devices.values.length : 0
+                    property bool btOn: Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.enabled : false
+                    label: btCount > 0 ? iBtConn + " " + btCount : iBt
+                    labelColor: btCount > 0 ? root.primary : root.dim
+                    pillBg: root.pillBg; pillBorder: root.pillBorder
+                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
+                    fontFamily: root.ff; fontSize: root.fs; minWidth: root.pillH
+                    onClicked: btPopup.showing = !btPopup.showing
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
+                }
+
                 // MPRIS
                 C.Pill {
                     visible: root.activePlayer !== null
@@ -482,7 +511,10 @@ Scope {
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 22
                     fontFamily: root.ff; fontSize: root.fs
                     tooltipText: root.calendarText
-                    onClicked: root.clockShowDate = !root.clockShowDate
+                    onClicked: mouse => {
+                        if (mouse.button === Qt.RightButton) root.clockShowDate = !root.clockShowDate;
+                        else calendarPopup.showing = !calendarPopup.showing;
+                    }
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
                     onTooltipHide: root.ttVisible = false
                 }
