@@ -30,7 +30,7 @@ PanelWindow {
     // Dark backdrop
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.65)
+        color: Qt.rgba(0, 0, 0, 0.74)
         opacity: pmWindow.showing ? 1.0 : 0.0
         Behavior on opacity { NumberAnimation { duration: 200 } }
 
@@ -64,7 +64,7 @@ PanelWindow {
         // Shutdown
         Rectangle {
             width: 140; height: 160; radius: 24
-            color: shutdownMA.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.04)
+            color: shutdownMA.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
             border.width: 2; border.color: shutdownMA.containsMouse ? pmWindow.red : Qt.rgba(1, 1, 1, 0.08)
             scale: shutdownMA.containsMouse ? 1.05 : 1.0
             Behavior on color { ColorAnimation { duration: 200 } }
@@ -86,7 +86,7 @@ PanelWindow {
         // Reboot
         Rectangle {
             width: 140; height: 160; radius: 24
-            color: rebootMA.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.04)
+            color: rebootMA.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
             border.width: 2; border.color: rebootMA.containsMouse ? pmWindow.primary : Qt.rgba(1, 1, 1, 0.08)
             scale: rebootMA.containsMouse ? 1.05 : 1.0
             Behavior on color { ColorAnimation { duration: 200 } }
@@ -108,7 +108,7 @@ PanelWindow {
         // Lock
         Rectangle {
             width: 140; height: 160; radius: 24
-            color: lockMA.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.04)
+            color: lockMA.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
             border.width: 2; border.color: lockMA.containsMouse ? pmWindow.green : Qt.rgba(1, 1, 1, 0.08)
             scale: lockMA.containsMouse ? 1.05 : 1.0
             Behavior on color { ColorAnimation { duration: 200 } }
@@ -130,7 +130,7 @@ PanelWindow {
         // Logout
         Rectangle {
             width: 140; height: 160; radius: 24
-            color: logoutMA.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.04)
+            color: logoutMA.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
             border.width: 2; border.color: logoutMA.containsMouse ? pmWindow.yellow : Qt.rgba(1, 1, 1, 0.08)
             scale: logoutMA.containsMouse ? 1.05 : 1.0
             Behavior on color { ColorAnimation { duration: 200 } }
@@ -152,7 +152,7 @@ PanelWindow {
         // Sleep
         Rectangle {
             width: 140; height: 160; radius: 24
-            color: sleepMA.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.04)
+            color: sleepMA.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
             border.width: 2; border.color: sleepMA.containsMouse ? pmWindow.cyan : Qt.rgba(1, 1, 1, 0.08)
             scale: sleepMA.containsMouse ? 1.05 : 1.0
             Behavior on color { ColorAnimation { duration: 200 } }
@@ -174,7 +174,7 @@ PanelWindow {
         // Hibernate
         Rectangle {
             width: 140; height: 160; radius: 24
-            color: hibMA.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.04)
+            color: hibMA.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
             border.width: 2; border.color: hibMA.containsMouse ? pmWindow.purple : Qt.rgba(1, 1, 1, 0.08)
             scale: hibMA.containsMouse ? 1.05 : 1.0
             Behavior on color { ColorAnimation { duration: 200 } }
