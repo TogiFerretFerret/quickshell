@@ -151,7 +151,8 @@ Scope {
     // Popup management
     function closePopups() { calendarPopup.showing = false; btPopup.showing = false;
         cpuPopup.showing = false; memPopup.showing = false; tempPopup.showing = false;
-        blPopup.showing = false; wifiPopup.showing = false; mprisPopup.showing = false; }
+        blPopup.showing = false; wifiPopup.showing = false; mprisPopup.showing = false;
+        batPopup.showing = false; }
     function togglePopup(popup) { var was = popup.showing; closePopups(); popup.showing = !was; }
 
     // Popups
@@ -173,7 +174,10 @@ Scope {
         title: "Memory & Disk"; content: sys.memDetail; popupX: 100 }
 
     C.InfoPopup { id: tempPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
-        title: "Thermals"; content: sys.tempDetail; popupX: 210 }
+        title: "Thermals"; content: sys.tempDetail; popupX: 85 }
+
+    C.BatteryPopup { id: batPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+        green: root.cGreen }
 
     C.BrightnessPopup { id: blPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
         yellow: root.cYellow; brightness: sys.brightness }
@@ -291,7 +295,7 @@ Scope {
                     pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: root.pillPad
                     fontFamily: root.ff; fontSize: root.fs
-                    onClicked: root.battShowTime = !root.battShowTime
+                    onClicked: mouse => { if (mouse.button === Qt.RightButton) root.battShowTime = !root.battShowTime; else root.togglePopup(batPopup); }
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
                     onTooltipHide: root.ttVisible = false
                 }
@@ -443,8 +447,7 @@ Scope {
 
                 // MPRIS
                 C.Pill {
-                    visible: root.activePlayer !== null
-                    label: { if (!root.activePlayer) return "";
+                    label: { if (!root.activePlayer) return root.iPause + " No media";
                         var icon = root.activePlayer.playbackState === MprisPlaybackState.Playing ? root.iPlay : root.iPause;
                         var a = root.activePlayer.trackArtist || ""; var t = root.activePlayer.trackTitle || "";
                         var info = a ? a + " - " + t : t;
@@ -480,6 +483,26 @@ Scope {
                     Behavior on border.color { ColorAnimation { duration: 250 } }
                     Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
                     Row { id: trayRow; anchors.centerIn: parent; spacing: 6
+
+                        // WiFi icon
+                        MouseArea {
+                            property var wifiDev: {
+                                var devs = Networking.devices ? Networking.devices.values : [];
+                                for (var i = 0; i < devs.length; i++)
+                                    if (devs[i].type === DeviceType.Wifi) return devs[i];
+                                return null; }
+                            property bool connected: {
+                                if (!wifiDev || !wifiDev.networks) return false;
+                                var nets = wifiDev.networks.values;
+                                for (var i = 0; i < nets.length; i++) if (nets[i].connected) return true;
+                                return false; }
+                            width: 22; height: 22
+                            onClicked: root.togglePopup(wifiPopup)
+                            Text { anchors.centerIn: parent
+                                text: Networking.wifiEnabled ? String.fromCodePoint(0xf05a9) : String.fromCodePoint(0xf05aa)
+                                color: parent.connected ? root.primary : root.dim
+                                font { pixelSize: 16; family: root.ff } }
+                        }
 
                         // Tray items
                         Repeater { id: trayRepeater; model: SystemTray.items
