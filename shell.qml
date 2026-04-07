@@ -484,6 +484,22 @@ Scope {
                     Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
                     Row { id: trayRow; anchors.centerIn: parent; spacing: 6
 
+                        // Tray items
+                        Repeater { id: trayRepeater; model: SystemTray.items
+                            MouseArea { id: trayItem; required property SystemTrayItem modelData
+                                width: 22; height: 22
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                                onClicked: mouse => {
+                                    if (mouse.button === Qt.LeftButton) trayItem.modelData.activate();
+                                    else if (mouse.button === Qt.RightButton && trayItem.modelData.hasMenu) trayMenu.open();
+                                    else if (mouse.button === Qt.MiddleButton) trayItem.modelData.secondaryActivate(); }
+                                IconImage { anchors.centerIn: parent; source: trayItem.modelData.icon; implicitSize: 20 }
+                                QsMenuAnchor { id: trayMenu; menu: trayItem.modelData.menu; anchor.window: bar
+                                    anchor.adjustment: PopupAdjustment.Flip
+                                    anchor.onAnchoring: { var rect = bar.contentItem.mapFromItem(trayItem, 0, trayItem.height, trayItem.width, trayItem.height); trayMenu.anchor.rect = rect; } }
+                            }
+                        }
+
                         // WiFi icon
                         MouseArea {
                             property var wifiDev: {
@@ -502,22 +518,6 @@ Scope {
                                 text: Networking.wifiEnabled ? String.fromCodePoint(0xf05a9) : String.fromCodePoint(0xf05aa)
                                 color: parent.connected ? root.primary : root.dim
                                 font { pixelSize: 16; family: root.ff } }
-                        }
-
-                        // Tray items
-                        Repeater { id: trayRepeater; model: SystemTray.items
-                            MouseArea { id: trayItem; required property SystemTrayItem modelData
-                                width: 22; height: 22
-                                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                                onClicked: mouse => {
-                                    if (mouse.button === Qt.LeftButton) trayItem.modelData.activate();
-                                    else if (mouse.button === Qt.RightButton && trayItem.modelData.hasMenu) trayMenu.open();
-                                    else if (mouse.button === Qt.MiddleButton) trayItem.modelData.secondaryActivate(); }
-                                IconImage { anchors.centerIn: parent; source: trayItem.modelData.icon; implicitSize: 20 }
-                                QsMenuAnchor { id: trayMenu; menu: trayItem.modelData.menu; anchor.window: bar
-                                    anchor.adjustment: PopupAdjustment.Flip
-                                    anchor.onAnchoring: { var rect = bar.contentItem.mapFromItem(trayItem, 0, trayItem.height, trayItem.width, trayItem.height); trayMenu.anchor.rect = rect; } }
-                            }
                         }
 
                         // Bluetooth icon
