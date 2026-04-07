@@ -144,6 +144,13 @@ Scope {
     }
 
     // ══════════════════════════════════════
+    // Shared tooltip state
+    // ══════════════════════════════════════
+    property string ttText: ""
+    property real ttX: 0
+    property bool ttVisible: false
+
+    // ══════════════════════════════════════
     // Bar
     // ══════════════════════════════════════
     Variants {
@@ -159,6 +166,34 @@ Scope {
             implicitHeight: 52
             color: "transparent"
 
+            // Tooltip rendered at bar level (not clipped by Row)
+            Rectangle {
+                id: barTooltip
+                visible: root.ttVisible && root.ttText !== ""
+                x: Math.max(4, Math.min(root.ttX - width/2, bar.width - width - 4))
+                y: bar.implicitHeight + 2
+                width: ttLabel.implicitWidth + 24
+                height: ttLabel.implicitHeight + 16
+                radius: 10
+                color: Qt.rgba(0.05, 0.05, 0.08, 0.94)
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, 0.1)
+                z: 999
+
+                opacity: root.ttVisible ? 1.0 : 0.0
+                Behavior on opacity { NumberAnimation { duration: 120 } }
+                Behavior on x { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
+
+                Text {
+                    id: ttLabel
+                    anchors.centerIn: parent
+                    text: root.ttText
+                    color: "#e1e2e9"
+                    font { pixelSize: 12; family: root.ff }
+                    lineHeight: 1.4
+                }
+            }
+
             // ── LEFT ──
             Row {
                 anchors.left: parent.left; anchors.leftMargin: 10
@@ -172,6 +207,8 @@ Scope {
                     fontFamily: root.ff; fontSize: root.fs
                     tooltipText: sys.cpuDetail
                     onClicked: openBtop.running = true
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
                 }
 
                 C.Pill {
@@ -181,6 +218,8 @@ Scope {
                     fontFamily: root.ff; fontSize: root.fs
                     tooltipText: sys.memDetail
                     onClicked: openDiskUsage.running = true
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
                 }
 
                 C.Pill {
@@ -190,6 +229,8 @@ Scope {
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: root.pillPad
                     fontFamily: root.ff; fontSize: root.fs
                     tooltipText: sys.tempDetail
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
                 }
 
                 C.Pill {
@@ -204,6 +245,8 @@ Scope {
                     fontFamily: root.ff; fontSize: root.fs
                     tooltipText: sys.battCharging ? "Charging" : "Discharging"
                     onClicked: root.battShowTime = !root.battShowTime
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
                 }
 
                 // Cava
@@ -294,6 +337,8 @@ Scope {
                     onClicked: { root.idleInhibited = !root.idleInhibited;
                         if (root.idleInhibited) idleInhibitOn.running = true;
                         else idleInhibitOff.running = true; }
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
                 }
 
                 // Volume + Mic
@@ -319,8 +364,14 @@ Scope {
                         var sink = Pipewire.defaultAudioSink;
                         var src = Pipewire.defaultAudioSource;
                         var t = "";
-                        if (sink && sink.audio) t += "Output: " + Math.round(sink.audio.volume * 100) + "%" + (sink.audio.muted ? " (muted)" : "");
-                        if (src && src.audio) t += "\nInput: " + Math.round(src.audio.volume * 100) + "%" + (src.audio.muted ? " (muted)" : "");
+                        if (sink) {
+                            t += (sink.name || "Output");
+                            if (sink.audio) t += ": " + Math.round(sink.audio.volume * 100) + "%" + (sink.audio.muted ? " (muted)" : "");
+                        }
+                        if (src) {
+                            t += "\n" + (src.name || "Input");
+                            if (src.audio) t += ": " + Math.round(src.audio.volume * 100) + "%" + (src.audio.muted ? " (muted)" : "");
+                        }
                         return t;
                     }
                     onClicked: mouse => {
@@ -330,6 +381,8 @@ Scope {
                     }
                     onWheel: wheel => { var s = Pipewire.defaultAudioSink; if (!s || !s.audio) return;
                         s.audio.volume = Math.max(0, Math.min(1.5, s.audio.volume + (wheel.angleDelta.y > 0 ? 0.05 : -0.05))); }
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
                 }
 
                 // Backlight
@@ -344,6 +397,8 @@ Scope {
                         sys.brightness = Math.max(0, Math.min(100,
                             sys.brightness + (wheel.angleDelta.y > 0 ? 5 : -5)));
                     }
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
                 }
 
                 // MPRIS
@@ -377,6 +432,8 @@ Scope {
                         else if (mouse.button === Qt.RightButton) root.activePlayer.next();
                         else root.activePlayer.previous();
                     }
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
                 }
 
                 // System Tray
@@ -414,6 +471,8 @@ Scope {
                     onClicked: mouse => {
                         if (mouse.button === Qt.LeftButton) swayncToggle.running = true;
                         else swayncDnd.running = true; }
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
                 }
 
                 // Clock
@@ -424,6 +483,8 @@ Scope {
                     fontFamily: root.ff; fontSize: root.fs
                     tooltipText: root.calendarText
                     onClicked: root.clockShowDate = !root.clockShowDate
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
                 }
 
                 // Power
@@ -433,6 +494,8 @@ Scope {
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
                     fontFamily: root.ff; fontSize: root.fs + 2; minWidth: root.pillH
                     onClicked: powerMenu.showing = !powerMenu.showing
+                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
+                    onTooltipHide: root.ttVisible = false
                 }
             }
         }

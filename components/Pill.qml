@@ -1,6 +1,6 @@
 import QtQuick
 
-Rectangle {
+Item {
     id: pill
 
     // Public API
@@ -24,32 +24,40 @@ Rectangle {
     // Signals
     signal clicked(var mouse)
     signal wheel(var wheel)
+    signal tooltipShow(real globalX, string text)
+    signal tooltipHide()
 
     // Expose hover state
     readonly property bool hovered: ma.containsMouse
 
-    height: pillHeight
-    width: Math.max(labelText.implicitWidth + pillPadding, minWidth, pillHeight)
-    radius: pillRadius
-    color: pillBg
-    border.width: 2
-    border.color: pillBorder
-    scale: interactive && ma.containsMouse ? hoverScale : 1.0
-    smooth: true
+    implicitHeight: pillHeight
+    implicitWidth: Math.max(labelText.implicitWidth + pillPadding, minWidth, pillHeight)
 
-    Behavior on color { ColorAnimation { duration: animDuration } }
-    Behavior on border.color { ColorAnimation { duration: animDuration } }
-    Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+    Rectangle {
+        id: bg
+        anchors.fill: parent
+        radius: pill.pillRadius
+        color: pill.pillBg
+        border.width: 2
+        border.color: pill.pillBorder
+        scale: pill.interactive && ma.containsMouse ? pill.hoverScale : 1.0
+        smooth: true
 
-    Text {
-        id: labelText
-        anchors.centerIn: parent
-        text: pill.label
-        color: pill.labelColor
-        font { pixelSize: pill.fontSize; family: pill.fontFamily }
         Behavior on color { ColorAnimation { duration: pill.animDuration } }
+        Behavior on border.color { ColorAnimation { duration: pill.animDuration } }
+        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+
+        Text {
+            id: labelText
+            anchors.centerIn: parent
+            text: pill.label
+            color: pill.labelColor
+            font { pixelSize: pill.fontSize; family: pill.fontFamily }
+            Behavior on color { ColorAnimation { duration: pill.animDuration } }
+        }
     }
+
+    Behavior on implicitWidth { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
     MouseArea {
         id: ma
@@ -58,15 +66,13 @@ Rectangle {
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         onClicked: mouse => pill.clicked(mouse)
         onWheel: wheel => pill.wheel(wheel)
-    }
-
-    // Tooltip positioned below pill
-    Tooltip {
-        id: tt
-        text: pill.tooltipText
-        show: ma.containsMouse && pill.tooltipText !== ""
-        anchors.top: pill.bottom
-        anchors.topMargin: 4
-        anchors.horizontalCenter: pill.horizontalCenter
+        onContainsMouseChanged: {
+            if (containsMouse && pill.tooltipText) {
+                var mapped = pill.mapToItem(null, pill.width / 2, 0);
+                pill.tooltipShow(mapped.x, pill.tooltipText);
+            } else {
+                pill.tooltipHide();
+            }
+        }
     }
 }
