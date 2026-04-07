@@ -80,14 +80,23 @@ Item {
         }}
     }
 
-    Process { id: blProc; command: ["sh", "-c",
-        "echo $(( $(brightnessctl g) * 100 / $(brightnessctl m) ))"]; running: true
-        stdout: SplitParser { onRead: data => { sysInfo.brightness = parseInt(data.trim()) || 0; } }
+    // Read brightness directly from sysfs (instant, no subprocess)
+    property string _blPath: "/sys/class/backlight/apple-panel-bl"
+    FileView { id: blCur; path: sysInfo._blPath + "/brightness"; watchChanges: true
+        onLoaded: updateBrightness(); onFileChanged: { blCur.reload(); } }
+    FileView { id: blMax; path: sysInfo._blPath + "/max_brightness"
+        Component.onCompleted: updateBrightness() }
+    function updateBrightness() {
+        try {
+            var cur = parseInt(blCur.text()) || 0;
+            var max = parseInt(blMax.text()) || 1;
+            sysInfo.brightness = Math.round(100 * cur / max);
+        } catch(e) {}
     }
 
     Timer { interval: 2000; running: true; repeat: true; onTriggered: {
         cpuProc.running = true; memProc.running = true; tempProc.running = true;
-        battProc.running = true; blProc.running = true;
+        battProc.running = true; sysInfo.updateBrightness();
     }}
 
     // ── Slow poll (5s) - hover details ──

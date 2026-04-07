@@ -136,7 +136,12 @@ Scope {
     Process { id: blDown; command: ["brightnessctl", "s", "5%-"] }
     Process { id: swayncToggle; command: ["swaync-client", "-t", "-sw"] }
     Process { id: swayncDnd; command: ["swaync-client", "-d", "-sw"] }
-    Process { id: powerProc; command: ["wlogout"] }
+    // Power menu overlay
+    C.PowerMenu {
+        id: powerMenu
+        bg: root.bg; primary: root.primary; fg: root.fg; dim: root.dim
+        red: root.cRed; green: root.cGreen; yellow: root.cYellow
+    }
 
     // ══════════════════════════════════════
     // Bar
@@ -427,7 +432,7 @@ Scope {
                     pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
                     fontFamily: root.ff; fontSize: root.fs + 2; minWidth: root.pillH
-                    onClicked: powerProc.running = true
+                    onClicked: powerMenu.showing = !powerMenu.showing
                 }
             }
         }
