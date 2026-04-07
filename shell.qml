@@ -10,6 +10,7 @@ import Quickshell.Services.SystemTray
 import Quickshell.Services.Pipewire
 import Quickshell.Widgets
 import Quickshell.Bluetooth
+import Quickshell.Networking
 import QtQuick
 import QtQuick.Layouts
 import "services" as Services
@@ -128,6 +129,7 @@ Scope {
     property bool idleInhibited: false
     property bool battShowTime: false
     property bool dndActive: false
+    property int notifCount: 0
 
     // Launcher processes
     Process { id: idleInhibitOn; command: ["sh", "-c", "pidof wayland-idle-inhibitor.py || wayland-idle-inhibitor.py &"] }
@@ -143,9 +145,15 @@ Scope {
     // Subscribe to swaync status changes (long-running, fires on every state change)
     Process { id: dndWatch; command: ["swaync-client", "-swb"]; running: true
         stdout: SplitParser { onRead: data => {
-            try { var j = JSON.parse(data); root.dndActive = (j.alt || "").indexOf("dnd") >= 0; } catch(e) {}
+            try { var j = JSON.parse(data); root.dndActive = (j.alt || "").indexOf("dnd") >= 0; root.notifCount = parseInt(j.text) || 0; } catch(e) {}
         }}
     }
+    // Popup management
+    function closePopups() { calendarPopup.showing = false; btPopup.showing = false;
+        cpuPopup.showing = false; memPopup.showing = false; tempPopup.showing = false;
+        blPopup.showing = false; wifiPopup.showing = false; mprisPopup.showing = false; }
+    function togglePopup(popup) { var was = popup.showing; closePopups(); popup.showing = !was; }
+
     // Popups
     C.CalendarPopup {
         id: calendarPopup
@@ -157,6 +165,24 @@ Scope {
         bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
         red: root.cRed; green: root.cGreen
     }
+
+    C.InfoPopup { id: cpuPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+        title: "CPU"; content: sys.cpuDetail; popupX: 10 }
+
+    C.InfoPopup { id: memPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+        title: "Memory & Disk"; content: sys.memDetail; popupX: 120 }
+
+    C.InfoPopup { id: tempPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+        title: "Thermals"; content: sys.tempDetail; popupX: 230 }
+
+    C.BrightnessPopup { id: blPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+        yellow: root.cYellow; brightness: sys.brightness }
+
+    C.WifiPopup { id: wifiPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+        green: root.cGreen }
+
+    C.MprisPopup { id: mprisPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+        secondary: root.secondary; player: root.activePlayer }
 
     // Power menu overlay
     C.PowerMenu {
@@ -223,25 +249,25 @@ Scope {
                 spacing: 6
 
                 C.Pill {
-                    function pad(n) { return n < 10 ? "  " + n : n < 100 ? " " + n : "" + n; }
-                    label: root.iCpu + " " + pad(sys.cpuUsage) + "%"
+                    function zpad(n) { return n >= 100 ? "100" : n < 10 ? "0" + n : "" + n; }
+                    label: root.iCpu + " " + zpad(sys.cpuUsage) + "%"
                     labelColor: root.primary; pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: root.pillPad
-                    fontFamily: root.ff; fontSize: root.fs; minWidth: 105; fixedWidth: true
+                    fontFamily: root.ff; fontSize: root.fs
                     tooltipText: sys.cpuDetail
-                    onClicked: openBtop.running = true
+                    onClicked: mouse => { if (mouse.button === Qt.RightButton) openBtop.running = true; else root.togglePopup(cpuPopup); }
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
                     onTooltipHide: root.ttVisible = false
                 }
 
                 C.Pill {
-                    function pad(n) { return n < 10 ? "  " + n : n < 100 ? " " + n : "" + n; }
-                    label: root.iMem + " " + pad(sys.memUsage) + "%"
+                    function zpad(n) { return n >= 100 ? "100" : n < 10 ? "0" + n : "" + n; }
+                    label: root.iMem + " " + zpad(sys.memUsage) + "%"
                     labelColor: root.accent; pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: root.pillPad
-                    fontFamily: root.ff; fontSize: root.fs; minWidth: 105; fixedWidth: true
+                    fontFamily: root.ff; fontSize: root.fs
                     tooltipText: sys.memDetail
-                    onClicked: openDiskUsage.running = true
+                    onClicked: mouse => { if (mouse.button === Qt.RightButton) openDiskUsage.running = true; else root.togglePopup(memPopup); }
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
                     onTooltipHide: root.ttVisible = false
                 }
@@ -253,6 +279,7 @@ Scope {
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: root.pillPad
                     fontFamily: root.ff; fontSize: root.fs
                     tooltipText: sys.tempDetail
+                    onClicked: root.togglePopup(tempPopup)
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
                     onTooltipHide: root.ttVisible = false
                 }
@@ -405,6 +432,7 @@ Scope {
                     labelColor: root.cYellow; pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 22
                     fontFamily: root.ff; fontSize: root.fs
+                    onClicked: root.togglePopup(blPopup)
                     onWheel: wheel => {
                         if (wheel.angleDelta.y > 0) blUp.running = true; else blDown.running = true;
                         sys.brightness = Math.max(0, Math.min(100, sys.brightness + (wheel.angleDelta.y > 0 ? 5 : -5)));
@@ -438,12 +466,7 @@ Scope {
                         info += "\n" + (root.activePlayer.identity || "");
                         return info;
                     }
-                    onClicked: mouse => {
-                        if (!root.activePlayer) return;
-                        if (mouse.button === Qt.LeftButton) root.activePlayer.togglePlaying();
-                        else if (mouse.button === Qt.RightButton) root.activePlayer.next();
-                        else root.activePlayer.previous();
-                    }
+                    onClicked: root.togglePopup(mprisPopup)
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
                     onTooltipHide: root.ttVisible = false
                 }
@@ -478,24 +501,29 @@ Scope {
                 C.Pill {
                     readonly property string iBt: String.fromCodePoint(0xf00af)
                     readonly property string iBtConn: String.fromCodePoint(0xf00b1)
-                    property int btCount: Bluetooth.devices ? Bluetooth.devices.values.length : 0
+                    property int btCount: {
+                        if (!Bluetooth.devices) return 0;
+                        var devs = Bluetooth.devices.values; var n = 0;
+                        for (var i = 0; i < devs.length; i++) if (devs[i].connected) n++;
+                        return n;
+                    }
                     label: btCount > 0 ? iBtConn + " " + btCount : iBt
                     labelColor: btCount > 0 ? root.primary : root.dim
                     pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
                     fontFamily: root.ff; fontSize: root.fs; minWidth: root.pillH
-                    onClicked: btPopup.showing = !btPopup.showing
+                    onClicked: root.togglePopup(btPopup)
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
                     onTooltipHide: root.ttVisible = false
                 }
 
                 // SwayNC
                 C.Pill {
-                    label: root.dndActive ? root.iNotifOff : root.iNotif
+                    label: (root.dndActive ? root.iNotifOff : root.iNotif) + (root.notifCount > 0 ? " " + root.notifCount : "")
                     labelColor: root.dndActive ? root.dim : root.accent
                     pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
-                    fontFamily: root.ff; fontSize: root.fs + 2; minWidth: root.pillH
+                    fontFamily: root.ff; fontSize: root.fs; minWidth: root.pillH
                     onClicked: mouse => {
                         if (mouse.button === Qt.LeftButton) swayncToggle.running = true;
                         else swayncDnd.running = true; }
@@ -512,7 +540,7 @@ Scope {
                     tooltipText: root.calendarText
                     onClicked: mouse => {
                         if (mouse.button === Qt.RightButton) root.clockShowDate = !root.clockShowDate;
-                        else calendarPopup.showing = !calendarPopup.showing;
+                        else root.togglePopup(calendarPopup);
                     }
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
                     onTooltipHide: root.ttVisible = false
