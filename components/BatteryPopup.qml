@@ -17,7 +17,7 @@ PanelWindow {
 
     visible: showing
     anchors { top: true; left: true }
-    margins.top: 56; margins.left: 310
+    margins.top: 56; margins.left: 240
     implicitWidth: Math.max(detailText.implicitWidth + 32, 220)
     implicitHeight: detailCol.implicitHeight + 28
     color: "transparent"

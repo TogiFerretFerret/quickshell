@@ -28,10 +28,27 @@ PanelWindow {
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     color: "transparent"
 
+    property string processedBanner: ""
+
     Process { id: uptimeProc; command: ["sh", "-c", "uptime -p | sed 's/up //'"]
         stdout: SplitParser { onRead: data => { pmWindow.uptimeStr = data.trim(); } } }
     Process { id: wpProc; command: ["sh", "-c", "cat ~/.cache/wallpaper-colors/current 2>/dev/null"]
-        stdout: SplitParser { onRead: data => { pmWindow.wallpaperPath = "file://" + data.trim(); } } }
+        stdout: SplitParser { onRead: data => {
+            pmWindow.wallpaperPath = "file://" + data.trim();
+            bannerProc.command = ["sh", "-c",
+                "mkdir -p /tmp/qs-art && magick '" + data.trim() + "' -resize 420x150^ -gravity center -extent 420x150 " +
+                "-brightness-contrast -20x0 " +
+                "\\( +clone -alpha extract " +
+                "-draw 'fill black polygon 0,0 0,24 24,0 fill white circle 24,24 24,0' " +
+                "-draw 'fill black polygon 396,0 420,0 420,24 fill white circle 396,24 396,0' " +
+                "\\) -alpha off -compose CopyOpacity -composite " +
+                "/tmp/qs-art/pm-banner.png && echo done"];
+            bannerProc.running = true;
+        } } }
+    Process { id: bannerProc
+        stdout: SplitParser { onRead: data => {
+            if (data.trim() === "done") pmWindow.processedBanner = "file:///tmp/qs-art/pm-banner.png?" + Date.now();
+        } } }
 
     onShowingChanged: if (showing) { uptimeProc.running = true; wpProc.running = true; }
 
@@ -50,28 +67,22 @@ PanelWindow {
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
 
-        // Wallpaper banner (top, clipped to top radius)
+        // Wallpaper banner
         Item {
             id: banner
             anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right
-            height: 150; clip: true
+            height: 150
 
-            // Rounded top mask
+            Image {
+                anchors.fill: parent; fillMode: Image.Stretch
+                source: pmWindow.processedBanner
+            }
+
+            // Dark scrim for text readability
             Rectangle {
-                anchors.fill: parent; radius: 24
-                Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: parent.radius; color: parent.color }
-                color: pmWindow.bg; clip: true; layer.enabled: true
-
-                Image {
-                    anchors.fill: parent; fillMode: Image.PreserveAspectCrop
-                    source: pmWindow.wallpaperPath; opacity: 0.6
-                }
-                Rectangle { anchors.fill: parent
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: "transparent" }
-                        GradientStop { position: 1.0; color: pmWindow.bg }
-                    }
-                }
+                anchors.centerIn: parent
+                width: parent.width - 40; height: 110; radius: 14
+                color: Qt.rgba(0, 0, 0, 0.5)
             }
 
             // User info overlaid on banner
@@ -93,9 +104,9 @@ PanelWindow {
 
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter; spacing: 6
-                    Text { text: String.fromCodePoint(0xf0954); color: pmWindow.dim
+                    Text { text: String.fromCodePoint(0xf0954); color: pmWindow.fg
                         font { pixelSize: 13; family: pmWindow.fontFamily } }
-                    Text { text: "Uptime: " + pmWindow.uptimeStr; color: pmWindow.dim
+                    Text { text: "Uptime: " + pmWindow.uptimeStr; color: pmWindow.fg
                         font { pixelSize: 13; family: pmWindow.fontFamily } }
                 }
             }
