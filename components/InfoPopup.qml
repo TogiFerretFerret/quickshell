@@ -18,7 +18,7 @@ PanelWindow {
 
     visible: showing
     anchors { top: true; left: true }
-    margins.top: 58
+    margins.top: 56
     margins.left: popupX
     implicitWidth: Math.max(contentText.implicitWidth + 32, titleText.implicitWidth + 32, 200)
     implicitHeight: contentCol.implicitHeight + 28

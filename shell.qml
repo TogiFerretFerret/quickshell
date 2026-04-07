@@ -480,6 +480,8 @@ Scope {
                     Behavior on border.color { ColorAnimation { duration: 250 } }
                     Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
                     Row { id: trayRow; anchors.centerIn: parent; spacing: 6
+
+                        // Tray items
                         Repeater { id: trayRepeater; model: SystemTray.items
                             MouseArea { id: trayItem; required property SystemTrayItem modelData
                                 width: 22; height: 22
@@ -494,27 +496,22 @@ Scope {
                                     anchor.onAnchoring: { var rect = bar.contentItem.mapFromItem(trayItem, 0, trayItem.height, trayItem.width, trayItem.height); trayMenu.anchor.rect = rect; } }
                             }
                         }
-                    }
-                }
 
-                // Bluetooth (next to tray)
-                C.Pill {
-                    readonly property string iBt: String.fromCodePoint(0xf00af)
-                    readonly property string iBtConn: String.fromCodePoint(0xf00b1)
-                    property int btCount: {
-                        if (!Bluetooth.devices) return 0;
-                        var devs = Bluetooth.devices.values; var n = 0;
-                        for (var i = 0; i < devs.length; i++) if (devs[i].connected) n++;
-                        return n;
+                        // Bluetooth icon
+                        MouseArea {
+                            property int btCount: {
+                                if (!Bluetooth.devices) return 0;
+                                var devs = Bluetooth.devices.values; var n = 0;
+                                for (var i = 0; i < devs.length; i++) if (devs[i].connected) n++;
+                                return n; }
+                            width: 22; height: 22
+                            onClicked: root.togglePopup(btPopup)
+                            Text { anchors.centerIn: parent
+                                text: parent.btCount > 0 ? String.fromCodePoint(0xf00b1) : String.fromCodePoint(0xf00af)
+                                color: parent.btCount > 0 ? root.primary : root.dim
+                                font { pixelSize: 16; family: root.ff } }
+                        }
                     }
-                    label: btCount > 0 ? iBtConn + " " + btCount : iBt
-                    labelColor: btCount > 0 ? root.primary : root.dim
-                    pillBg: root.pillBg; pillBorder: root.pillBorder
-                    pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
-                    fontFamily: root.ff; fontSize: root.fs; minWidth: root.pillH
-                    onClicked: root.togglePopup(btPopup)
-                    onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
-                    onTooltipHide: root.ttVisible = false
                 }
 
                 // SwayNC

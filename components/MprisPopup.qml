@@ -24,34 +24,37 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
 
     Rectangle {
-        anchors.fill: parent; radius: 14
-        color: Qt.rgba(mprisPopup.bg.r, mprisPopup.bg.g, mprisPopup.bg.b, 0.94)
+        anchors.fill: parent; radius: 14; clip: true
+        color: Qt.rgba(mprisPopup.bg.r, mprisPopup.bg.g, mprisPopup.bg.b, 0.7)
         border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.08)
+
+        // Album art background (dimmed, fills popup)
+        Image {
+            anchors.fill: parent; fillMode: Image.PreserveAspectCrop; opacity: 0.15
+            source: mprisPopup.player ? mprisPopup.player.trackArtUrl : ""
+        }
+
+        // Dark overlay for readability
+        Rectangle { anchors.fill: parent; radius: 14; color: Qt.rgba(0, 0, 0, 0.5) }
 
         Row {
             anchors.fill: parent; anchors.margins: 14; spacing: 14
 
-            // Album art
-            Image {
-                id: albumArt
-                width: 140; height: 140
-                source: mprisPopup.player ? mprisPopup.player.trackArtUrl : ""
-                fillMode: Image.PreserveAspectCrop
-                visible: status === Image.Ready
-
-                Rectangle { anchors.fill: parent; radius: 12; color: "transparent"
-                    border.width: 0 }
-
-                layer.enabled: true
-                layer.effect: null
-            }
-
-            // Fallback when no art
+            // Album art with rounding
             Rectangle {
-                width: 140; height: 140; radius: 12
+                width: 140; height: 140; radius: 14; clip: true
                 color: Qt.rgba(1, 1, 1, 0.04)
-                visible: !albumArt.visible
-                Text { anchors.centerIn: parent; text: String.fromCodePoint(0xf0388)
+
+                Image {
+                    id: albumArt
+                    anchors.fill: parent
+                    source: mprisPopup.player ? mprisPopup.player.trackArtUrl : ""
+                    fillMode: Image.PreserveAspectCrop
+                }
+
+                // Fallback icon
+                Text { anchors.centerIn: parent; visible: albumArt.status !== Image.Ready
+                    text: String.fromCodePoint(0xf0388)
                     color: mprisPopup.dim; font { pixelSize: 40; family: mprisPopup.fontFamily } }
             }
 
