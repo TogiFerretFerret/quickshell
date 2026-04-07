@@ -23,19 +23,30 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     exclusionMode: ExclusionMode.Ignore
 
-    Rectangle {
-        anchors.fill: parent; radius: 14; clip: true
-        color: Qt.rgba(mprisPopup.bg.r, mprisPopup.bg.g, mprisPopup.bg.b, 0.7)
-        border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.08)
+    // Clipping container
+    Item {
+        anchors.fill: parent; clip: true
+        layer.enabled: true
 
-        // Album art background (dimmed, fills popup)
+        Rectangle {
+            anchors.fill: parent; radius: 14
+            color: Qt.rgba(mprisPopup.bg.r, mprisPopup.bg.g, mprisPopup.bg.b, 0.85)
+        }
+
+        // Album art background (dimmed)
         Image {
-            anchors.fill: parent; fillMode: Image.PreserveAspectCrop; opacity: 0.15
+            anchors.fill: parent; fillMode: Image.PreserveAspectCrop; opacity: 0.2
             source: mprisPopup.player ? mprisPopup.player.trackArtUrl : ""
         }
 
-        // Dark overlay for readability
-        Rectangle { anchors.fill: parent; radius: 14; color: Qt.rgba(0, 0, 0, 0.5) }
+        // Dark overlay
+        Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, 0.4) }
+    }
+
+    // Border on top (not clipped)
+    Rectangle {
+        anchors.fill: parent; radius: 14; color: "transparent"
+        border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.08)
 
         Row {
             anchors.fill: parent; anchors.margins: 14; spacing: 14
