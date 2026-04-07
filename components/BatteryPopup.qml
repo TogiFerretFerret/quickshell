@@ -17,7 +17,7 @@ PanelWindow {
 
     visible: showing
     anchors { top: true; left: true }
-    margins.top: 56; margins.left: 240
+    margins.top: 56; margins.left: 200
     implicitWidth: Math.max(detailText.implicitWidth + 32, 220)
     implicitHeight: detailCol.implicitHeight + 28
     color: "transparent"
@@ -30,7 +30,7 @@ PanelWindow {
         "echo '' && echo '── Status ──' && " +
         "cat /sys/class/power_supply/macsmc-battery/status 2>/dev/null && " +
         "echo \"Capacity: $(cat /sys/class/power_supply/macsmc-battery/capacity 2>/dev/null)%\" && " +
-        "echo \"Health: $(cat /sys/class/power_supply/macsmc-battery/charge_full 2>/dev/null | awk '{printf \"%.0f\", $1/10000}')%\" && " +
+        "echo \"Health: $(awk 'BEGIN{printf \"%.0f\", '$(cat /sys/class/power_supply/macsmc-battery/charge_full 2>/dev/null)'/'$(cat /sys/class/power_supply/macsmc-battery/charge_full_design 2>/dev/null)'*100}')%\" && " +
         "echo \"Cycles: $(cat /sys/class/power_supply/macsmc-battery/cycle_count 2>/dev/null)\" && " +
         "acpi -b 2>/dev/null | grep -oP '\\d+:\\d+ (remaining|until).*' || true"
     ]; running: true
