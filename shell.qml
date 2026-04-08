@@ -132,8 +132,8 @@ Scope {
     property int notifCount: 0
 
     // Launcher processes
-    Process { id: idleInhibitOn; command: ["sh", "-c", "pidof wayland-idle-inhibitor.py || wayland-idle-inhibitor.py &"] }
-    Process { id: idleInhibitOff; command: ["sh", "-c", "pkill -f wayland-idle-inhibitor"] }
+    Process { id: idleInhibitOn; command: ["sh", "-c", "systemd-inhibit --what=idle --who=quickshell --why='User requested' --mode=block sleep infinity &"] }
+    Process { id: idleInhibitOff; command: ["sh", "-c", "pkill -f 'systemd-inhibit.*quickshell'"] }
     Process { id: openBtop; command: ["ghostty", "-e", "btop"] }
     Process { id: openDiskUsage; command: ["baobab"] }
     Process { id: openPavucontrol; command: ["pavucontrol"] }
