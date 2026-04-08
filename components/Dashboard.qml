@@ -113,17 +113,23 @@ PanelWindow {
                     // Month nav
                     Row {
                         width: parent.width; spacing: 0
-                        Text { text: "<"; color: dash.dim; font { pixelSize: 16; family: dash.fontFamily; bold: true }
-                            width: 30; horizontalAlignment: Text.AlignHCenter
-                            MouseArea { anchors.fill: parent; onClicked: {
+                        Rectangle { width: 30; height: 26; radius: 8; color: prevMA.containsMouse ? Qt.rgba(1,1,1,0.1) : "transparent"
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                            Text { anchors.centerIn: parent; text: "<"; color: prevMA.containsMouse ? dash.primary : dash.dim
+                                font { pixelSize: 16; family: dash.fontFamily; bold: true }
+                                Behavior on color { ColorAnimation { duration: 150 } } }
+                            MouseArea { id: prevMA; anchors.fill: parent; hoverEnabled: true; onClicked: {
                                 var d = dash.currentDate;
                                 dash.currentDate = new Date(d.getFullYear(), d.getMonth() - 1, 1); } } }
                         Text { text: Qt.formatDateTime(dash.currentDate, "MMMM yyyy")
                             color: dash.fg; font { pixelSize: 13; family: dash.fontFamily; bold: true }
                             width: parent.width - 60; horizontalAlignment: Text.AlignHCenter }
-                        Text { text: ">"; color: dash.dim; font { pixelSize: 16; family: dash.fontFamily; bold: true }
-                            width: 30; horizontalAlignment: Text.AlignHCenter
-                            MouseArea { anchors.fill: parent; onClicked: {
+                        Rectangle { width: 30; height: 26; radius: 8; color: nextMA.containsMouse ? Qt.rgba(1,1,1,0.1) : "transparent"
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                            Text { anchors.centerIn: parent; text: ">"; color: nextMA.containsMouse ? dash.primary : dash.dim
+                                font { pixelSize: 16; family: dash.fontFamily; bold: true }
+                                Behavior on color { ColorAnimation { duration: 150 } } }
+                            MouseArea { id: nextMA; anchors.fill: parent; hoverEnabled: true; onClicked: {
                                 var d = dash.currentDate;
                                 dash.currentDate = new Date(d.getFullYear(), d.getMonth() + 1, 1); } } }
                     }
@@ -156,11 +162,16 @@ PanelWindow {
                                     return dayNum > 0 && now.getDate() === dayNum &&
                                         now.getMonth() === d.getMonth() && now.getFullYear() === d.getFullYear(); }
                                 width: (calCol.width) / 7; height: 28; radius: 8
-                                color: isToday ? dash.primary : "transparent"
+                                color: isToday ? dash.primary : dayMA.containsMouse && dayNum > 0 ? Qt.rgba(1,1,1,0.08) : "transparent"
+                                scale: dayMA.containsMouse && dayNum > 0 ? 1.1 : 1.0
+                                Behavior on color { ColorAnimation { duration: 120 } }
+                                Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutBack } }
                                 Text { anchors.centerIn: parent
                                     text: parent.dayNum > 0 ? parent.dayNum : ""
-                                    color: parent.isToday ? dash.bg : parent.dayNum > 0 ? dash.fg : "transparent"
-                                    font { pixelSize: 11; family: dash.fontFamily; bold: parent.isToday } }
+                                    color: parent.isToday ? dash.bg : parent.dayNum > 0 ? (dayMA.containsMouse ? dash.primary : dash.fg) : "transparent"
+                                    font { pixelSize: 11; family: dash.fontFamily; bold: parent.isToday }
+                                    Behavior on color { ColorAnimation { duration: 120 } } }
+                                MouseArea { id: dayMA; anchors.fill: parent; hoverEnabled: true }
                             }
                         }
                     }
@@ -174,7 +185,11 @@ PanelWindow {
                 // Uptime
                 Rectangle {
                     width: (parent.width - 8) / 2; height: 50; radius: 12
-                    color: Qt.rgba(1, 1, 1, 0.04); border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.06)
+                    color: upMA.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
+                    border.width: 1; border.color: upMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1, 1, 1, 0.06)
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on border.color { ColorAnimation { duration: 150 } }
+                    MouseArea { id: upMA; anchors.fill: parent; hoverEnabled: true }
                     Column { anchors.centerIn: parent; spacing: 2
                         Text { text: String.fromCodePoint(0xf0954) + " Uptime"; color: dash.dim
                             font { pixelSize: 10; family: dash.fontFamily }
@@ -188,7 +203,11 @@ PanelWindow {
                 // Packages
                 Rectangle {
                     width: (parent.width - 8) / 2; height: 50; radius: 12
-                    color: Qt.rgba(1, 1, 1, 0.04); border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.06)
+                    color: pkgMA.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
+                    border.width: 1; border.color: pkgMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1, 1, 1, 0.06)
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on border.color { ColorAnimation { duration: 150 } }
+                    MouseArea { id: pkgMA; anchors.fill: parent; hoverEnabled: true }
                     Column { anchors.centerIn: parent; spacing: 2
                         Text { text: String.fromCodePoint(0xf03d7) + " Packages"; color: dash.dim
                             font { pixelSize: 10; family: dash.fontFamily }
@@ -201,9 +220,17 @@ PanelWindow {
             }
 
             // ── Today button ──
-            Text { text: "Today"; color: dash.primary; anchors.horizontalCenter: parent.horizontalCenter
-                font { pixelSize: 11; family: dash.fontFamily }
-                MouseArea { anchors.fill: parent; onClicked: dash.currentDate = new Date() } }
+            Rectangle {
+                width: 70; height: 26; radius: 10; anchors.horizontalCenter: parent.horizontalCenter
+                color: todayMA.containsMouse ? Qt.rgba(dash.primary.r, dash.primary.g, dash.primary.b, 0.15) : "transparent"
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Text { anchors.centerIn: parent; text: "Today"
+                    color: todayMA.containsMouse ? Qt.lighter(dash.primary, 1.2) : dash.primary
+                    font { pixelSize: 11; family: dash.fontFamily }
+                    Behavior on color { ColorAnimation { duration: 150 } } }
+                MouseArea { id: todayMA; anchors.fill: parent; hoverEnabled: true
+                    onClicked: dash.currentDate = new Date() }
+            }
         }
     }
 
