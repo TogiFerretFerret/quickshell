@@ -207,7 +207,7 @@ PanelWindow {
     // Processes
     Process { id: shutdownProc; command: ["shutdown", "now"] }
     Process { id: rebootProc; command: ["reboot"] }
-    Process { id: lockProc; command: ["sh", "-c", "sleep 0.5; hyprlock"] }
+    Process { id: lockProc; command: ["sh", "-c", "sleep 0.5; ~/.config/hypr/scripts/lock.sh"] }
     Process { id: logoutProc; command: ["sh", "-c", "sudo systemctl restart sddm; hyprctl dispatch exit 0"] }
     Process { id: sleepProc; command: ["systemctl", "suspend"] }
     Process { id: hibProc; command: ["systemctl", "hibernate"] }

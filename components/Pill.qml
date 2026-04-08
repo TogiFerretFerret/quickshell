@@ -39,7 +39,7 @@ Item {
         anchors.fill: parent
         radius: pill.pillRadius
         color: pill.pillBg
-        border.width: 2
+        border.width: 1
         border.color: pill.pillBorder
         scale: pill.interactive && ma.containsMouse ? pill.hoverScale : 1.0
         smooth: true

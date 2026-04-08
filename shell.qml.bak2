@@ -37,10 +37,10 @@ Scope {
     property color pillBg:    Qt.rgba(bg.r, bg.g, bg.b, 0.85)
     property color pillBorder: Qt.rgba(0.08, 0.42, 0.78, 0.5)
     property string ff:       "JetBrainsMono Nerd Font"
-    property int fs:          13
-    property int pillH:       34
-    property int pillR:       17
-    property int pillPad:     20
+    property int fs:          15
+    property int pillH:       44
+    property int pillR:       22
+    property int pillPad:     28
 
     onBgChanged: pillBg = Qt.rgba(bg.r, bg.g, bg.b, 0.85)
 
@@ -215,7 +215,7 @@ Scope {
 
             anchors { top: true; left: true; right: true }
             margins.top: 5
-            implicitHeight: 40
+            implicitHeight: 49
             color: "transparent"
 
             // Tooltip rendered at bar level (not clipped by Row)
@@ -250,7 +250,7 @@ Scope {
             Row {
                 anchors.left: parent.left; anchors.leftMargin: 10
                 anchors.bottom: parent.bottom; anchors.bottomMargin: 2
-                spacing: 18
+                spacing: 6
 
                 C.Pill {
                     function zpad(n) { return n >= 100 ? "100" : n < 10 ? "0" + n : "" + n; }
@@ -303,7 +303,7 @@ Scope {
                 // Cava
                 Rectangle {
                     height: root.pillH; width: 150; radius: root.pillR
-                    color: root.pillBg; border.width: 1; border.color: root.pillBorder
+                    color: root.pillBg; border.width: 2; border.color: root.pillBorder
                     visible: sys.cavaOutput !== ""; clip: true
                     Behavior on color { ColorAnimation { duration: 250 } }
                     Behavior on border.color { ColorAnimation { duration: 250 } }
@@ -315,7 +315,7 @@ Scope {
                 Rectangle {
                     height: root.pillH
                     width: winT.text !== "" ? Math.max(winT.implicitWidth + root.pillPad, 40) : 0
-                    radius: root.pillR; color: root.pillBg; border.width: 1; border.color: root.pillBorder
+                    radius: root.pillR; color: root.pillBg; border.width: 2; border.color: root.pillBorder
                     clip: true; visible: width > 0
                     Behavior on color { ColorAnimation { duration: 250 } }
                     Behavior on border.color { ColorAnimation { duration: 250 } }
@@ -331,11 +331,11 @@ Scope {
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom; anchors.bottomMargin: 2
-                spacing: 18
+                spacing: 6
 
                 Rectangle {
                     height: root.pillH; width: wsRow.implicitWidth + 20; radius: root.pillR
-                    color: root.pillBg; border.width: 1; border.color: root.pillBorder
+                    color: root.pillBg; border.width: 2; border.color: root.pillBorder
                     Behavior on color { ColorAnimation { duration: 250 } }
                     Behavior on border.color { ColorAnimation { duration: 250 } }
                     Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
@@ -375,7 +375,7 @@ Scope {
             Row {
                 anchors.right: parent.right; anchors.rightMargin: 10
                 anchors.bottom: parent.bottom; anchors.bottomMargin: 2
-                spacing: 18
+                spacing: 6
 
                 // Idle Inhibitor
                 C.Pill {
@@ -451,15 +451,7 @@ Scope {
                         var icon = root.activePlayer.playbackState === MprisPlaybackState.Playing ? root.iPlay : root.iPause;
                         var a = root.activePlayer.trackArtist || ""; var t = root.activePlayer.trackTitle || "";
                         var info = t ? (a ? t + " - " + a : t) : a;
-                        // CJK chars count as 2 toward limit; limit scales with workspace count
-                        var wsCount = 0; var wsv = Hyprland.workspaces.values;
-                        if (wsv) for (var w = 0; w < wsv.length; w++) if (wsv[w].id >= 1 && wsv[w].id <= 10) wsCount++;
-                        var limit = wsCount <= 6 ? 27 : wsCount === 7 ? 23 : wsCount === 8 ? 20 : wsCount === 9 ? 17 : 15; var count = 0; var cut = info.length;
-                        for (var i = 0; i < info.length; i++) {
-                            count += info.charCodeAt(i) > 0x2E80 ? 2 : 1;
-                            if (count > limit) { cut = i; break; }
-                        }
-                        return icon + " " + (cut < info.length ? info.substring(0, cut) + "…" : info); }
+                        return icon + " " + (info.length > 15 ? info.substring(0, 15) + "…" : info); }
                     labelColor: root.secondary; pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 22
                     fontFamily: root.ff; fontSize: root.fs
@@ -485,7 +477,7 @@ Scope {
                 // System Tray
                 Rectangle {
                     height: root.pillH; width: trayRow.implicitWidth + 16; radius: root.pillR
-                    color: root.pillBg; border.width: 1; border.color: root.pillBorder
+                    color: root.pillBg; border.width: 2; border.color: root.pillBorder
                     visible: trayRepeater.count > 0
                     Behavior on color { ColorAnimation { duration: 250 } }
                     Behavior on border.color { ColorAnimation { duration: 250 } }
@@ -524,7 +516,7 @@ Scope {
                             onClicked: root.togglePopup(wifiPopup)
                             Text { anchors.centerIn: parent
                                 text: Networking.wifiEnabled ? String.fromCodePoint(0xf05a9) : String.fromCodePoint(0xf05aa)
-                                color: root.dim
+                                color: parent.connected ? root.primary : root.dim
                                 font { pixelSize: 16; family: root.ff } }
                         }
 
@@ -539,7 +531,7 @@ Scope {
                             onClicked: root.togglePopup(btPopup)
                             Text { anchors.centerIn: parent
                                 text: parent.btCount > 0 ? String.fromCodePoint(0xf00b1) : String.fromCodePoint(0xf00af)
-                                color: root.dim
+                                color: parent.btCount > 0 ? root.primary : root.dim
                                 font { pixelSize: 16; family: root.ff } }
                         }
                     }
