@@ -450,7 +450,7 @@ Scope {
                     label: { if (!root.activePlayer) return root.iPause + " No media";
                         var icon = root.activePlayer.playbackState === MprisPlaybackState.Playing ? root.iPlay : root.iPause;
                         var a = root.activePlayer.trackArtist || ""; var t = root.activePlayer.trackTitle || "";
-                        var info = a ? a + " - " + t : t;
+                        var info = t ? (a ? t + " - " + a : t) : a;
                         return icon + " " + (info.length > 20 ? info.substring(0, 20) + "…" : info); }
                     labelColor: root.secondary; pillBg: root.pillBg; pillBorder: root.pillBorder
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 22
