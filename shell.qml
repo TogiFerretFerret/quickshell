@@ -156,7 +156,7 @@ Scope {
     function togglePopup(popup) { var was = popup.showing; closePopups(); popup.showing = !was; }
 
     // Popups
-    C.CalendarPopup {
+    C.Dashboard {
         id: calendarPopup
         bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
     }
