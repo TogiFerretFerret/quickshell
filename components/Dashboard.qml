@@ -26,15 +26,22 @@ PanelWindow {
     // Calendar
     property var currentDate: new Date()
 
-    // Pomodoro
-    property int pomoDuration: 25 * 60
-    property int pomoRemaining: 25 * 60
-    property bool pomoRunning: false
-    property bool pomoIsBreak: false
+    // Pomodoro - Long (focus)
+    property int pomoLongDur: 25 * 60
+    property int pomoLongRem: 25 * 60
+    property bool pomoLongRun: false
+    // Pomodoro - Short (break)
+    property int pomoShortDur: 5 * 60
+    property int pomoShortRem: 5 * 60
+    property bool pomoShortRun: false
 
     // Notes
     property string notesText: ""
     property string notesFile: Quickshell.env("HOME") + "/.cache/dashboard-notes.txt"
+
+    // Calendar events
+    property var calEvents: []
+    property bool calLoading: false
 
     // Network
     property string netSSID: "--"
@@ -44,7 +51,7 @@ PanelWindow {
     visible: showing
     anchors { top: true; right: true }
     margins.top: 50; margins.right: 10
-    implicitWidth: 620; implicitHeight: dashRoot.implicitHeight + 32
+    implicitWidth: 820; implicitHeight: dashRoot.implicitHeight + 32
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
@@ -54,6 +61,7 @@ PanelWindow {
         weatherProc.running = true; currentDate = new Date();
         uptimeProc.running = true; pkgProc.running = true;
         netProc.running = true; loadNotes.running = true;
+        calLoading = true; calProc.running = true;
     }
 
     // ── Fetch weather + hourly ──
@@ -111,6 +119,20 @@ PanelWindow {
         }}
     }
 
+    // ── Google Calendar ──
+    Process { id: calProc; command: ["python3", Quickshell.env("HOME") + "/.config/hypr/scripts/gcal-events.py"]
+        stdout: StdioCollector { onStreamFinished: {
+            var lines = text.trim().split("\n");
+            var evts = [];
+            for (var i = 0; i < lines.length; i++) {
+                var parts = lines[i].split("|");
+                if (parts.length >= 2) evts.push({ time: parts[0], title: parts.slice(1).join("|") });
+            }
+            dash.calEvents = evts;
+            dash.calLoading = false;
+        }}
+    }
+
     // ── Notes persistence ──
     Process { id: loadNotes; command: ["sh", "-c", "cat '" + dash.notesFile + "' 2>/dev/null || echo ''"]
         stdout: StdioCollector { onStreamFinished: { dash.notesText = text; } }
@@ -124,31 +146,27 @@ PanelWindow {
         saveNotes.running = true;
     }
 
-    // ── Pomodoro timer ──
+    // ── Pomodoro timers ──
     Timer {
-        id: pomoTimer; interval: 1000; repeat: true; running: dash.pomoRunning
+        id: pomoLongTimer; interval: 1000; repeat: true; running: dash.pomoLongRun
         onTriggered: {
-            if (dash.pomoRemaining > 0) {
-                dash.pomoRemaining--;
-            } else {
-                dash.pomoRunning = false;
-                if (dash.pomoIsBreak) {
-                    dash.pomoIsBreak = false;
-                    dash.pomoRemaining = dash.pomoDuration;
-                } else {
-                    dash.pomoIsBreak = true;
-                    dash.pomoRemaining = 5 * 60; // 5 min break
-                }
-                pomoNotify.running = true;
-            }
+            if (dash.pomoLongRem > 0) dash.pomoLongRem--;
+            else { dash.pomoLongRun = false; pomoLongNotify.running = true; }
         }
     }
-    Process { id: pomoNotify; command: ["notify-send", "-u", "critical",
-        dash.pomoIsBreak ? "Break over! Time to focus." : "Pomodoro done! Take a break."] }
+    Timer {
+        id: pomoShortTimer; interval: 1000; repeat: true; running: dash.pomoShortRun
+        onTriggered: {
+            if (dash.pomoShortRem > 0) dash.pomoShortRem--;
+            else { dash.pomoShortRun = false; pomoShortNotify.running = true; }
+        }
+    }
+    Process { id: pomoLongNotify; command: ["notify-send", "-u", "critical", "Focus session done! Take a break."] }
+    Process { id: pomoShortNotify; command: ["notify-send", "-u", "critical", "Break over! Time to focus."] }
 
     Rectangle {
         anchors.fill: parent; radius: 18
-        color: Qt.rgba(dash.bg.r, dash.bg.g, dash.bg.b, 0.95)
+        color: Qt.rgba(dash.bg.r, dash.bg.g, dash.bg.b, 0.97)
         border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.08)
 
         Row {
@@ -157,7 +175,7 @@ PanelWindow {
 
             // ══════════ LEFT COLUMN ══════════
             Column {
-                width: (parent.width - 12) * 0.38; spacing: 10
+                width: (parent.width - 24) * 0.28; spacing: 10
 
                 // Network
                 Rectangle {
@@ -224,62 +242,142 @@ PanelWindow {
                     }
                 }
 
-                // Pomodoro
+                // Focus timer
                 Rectangle {
                     width: parent.width; height: 80; radius: 14
-                    color: Qt.rgba(1, 1, 1, 0.04); border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.06)
-                    Column {
-                        anchors.fill: parent; anchors.margins: 10; spacing: 4
-                        // Label
-                        Text { text: dash.pomoIsBreak ? "BREAK" : "FOCUS"; color: dash.pomoIsBreak ? "#a6e3a1" : dash.primary
-                            font { pixelSize: 9; family: dash.fontFamily; bold: true } }
-                        // Timer + controls
-                        Row {
-                            spacing: 6; width: parent.width
+                        color: Qt.rgba(1, 1, 1, 0.04); border.width: 1
+                        border.color: dash.pomoLongRun ? Qt.rgba(dash.primary.r, dash.primary.g, dash.primary.b, 0.3) : Qt.rgba(1, 1, 1, 0.06)
+                        Behavior on border.color { ColorAnimation { duration: 200 } }
+                        Column {
+                            anchors.fill: parent; anchors.margins: 8; spacing: 2
+                            Text { text: "FOCUS"; color: dash.primary
+                                font { pixelSize: 8; family: dash.fontFamily; bold: true } }
                             Text {
-                                text: Math.floor(dash.pomoRemaining / 60).toString().padStart(2, '0') + ":" +
-                                      (dash.pomoRemaining % 60).toString().padStart(2, '0')
-                                color: dash.fg; anchors.verticalCenter: parent.verticalCenter
-                                font { pixelSize: 22; family: dash.fontFamily; bold: true } }
-                            Rectangle {
-                                width: 26; height: 26; radius: 13; anchors.verticalCenter: parent.verticalCenter
-                                color: pomoPlayMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
-                                Behavior on color { ColorAnimation { duration: 150 } }
-                                Text { anchors.centerIn: parent
-                                    text: dash.pomoRunning ? String.fromCodePoint(0xf03e4) : String.fromCodePoint(0xf040a)
-                                    color: dash.primary; font { pixelSize: 12; family: dash.fontFamily } }
-                                MouseArea { id: pomoPlayMA; anchors.fill: parent; hoverEnabled: true
-                                    onClicked: dash.pomoRunning = !dash.pomoRunning }
-                            }
-                            Rectangle {
-                                width: 26; height: 26; radius: 13; anchors.verticalCenter: parent.verticalCenter
-                                color: pomoResetMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
-                                Behavior on color { ColorAnimation { duration: 150 } }
-                                Text { anchors.centerIn: parent; text: String.fromCodePoint(0xf0453)
-                                    color: dash.dim; font { pixelSize: 12; family: dash.fontFamily } }
-                                MouseArea { id: pomoResetMA; anchors.fill: parent; hoverEnabled: true
-                                    onClicked: { dash.pomoRunning = false; dash.pomoIsBreak = false; dash.pomoRemaining = dash.pomoDuration; } }
+                                text: Math.floor(dash.pomoLongRem / 60).toString().padStart(2, '0') + ":" +
+                                      (dash.pomoLongRem % 60).toString().padStart(2, '0')
+                                color: dash.fg
+                                font { pixelSize: 20; family: dash.fontFamily; bold: true } }
+                            Row {
+                                spacing: 4
+                                Rectangle {
+                                    width: 22; height: 22; radius: 11
+                                    color: plMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
+                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                    Text { anchors.centerIn: parent
+                                        text: dash.pomoLongRun ? String.fromCodePoint(0xf03e4) : String.fromCodePoint(0xf040a)
+                                        color: dash.primary; font { pixelSize: 10; family: dash.fontFamily } }
+                                    MouseArea { id: plMA; anchors.fill: parent; hoverEnabled: true
+                                        onClicked: dash.pomoLongRun = !dash.pomoLongRun }
+                                }
+                                Rectangle {
+                                    width: 22; height: 22; radius: 11
+                                    color: rlMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
+                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                    Text { anchors.centerIn: parent; text: String.fromCodePoint(0xf0453)
+                                        color: dash.dim; font { pixelSize: 10; family: dash.fontFamily } }
+                                    MouseArea { id: rlMA; anchors.fill: parent; hoverEnabled: true
+                                        onClicked: { dash.pomoLongRun = false; dash.pomoLongRem = dash.pomoLongDur; } }
+                                }
+                                Text { text: "-"; color: mlMA.containsMouse ? dash.primary : dash.dim; anchors.verticalCenter: parent.verticalCenter
+                                    font { pixelSize: 11; family: dash.fontFamily; bold: true }
+                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                    MouseArea { id: mlMA; anchors.fill: parent; hoverEnabled: true
+                                        onClicked: { if (!dash.pomoLongRun && dash.pomoLongDur > 300) { dash.pomoLongDur -= 300; dash.pomoLongRem = dash.pomoLongDur; } } } }
+                                Text { text: Math.floor(dash.pomoLongDur / 60) + "m"; color: dash.dim
+                                    font { pixelSize: 8; family: dash.fontFamily }
+                                    anchors.verticalCenter: parent.verticalCenter }
+                                Text { text: "+"; color: alMA.containsMouse ? dash.primary : dash.dim; anchors.verticalCenter: parent.verticalCenter
+                                    font { pixelSize: 11; family: dash.fontFamily; bold: true }
+                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                    MouseArea { id: alMA; anchors.fill: parent; hoverEnabled: true
+                                        onClicked: { if (!dash.pomoLongRun && dash.pomoLongDur < 3600) { dash.pomoLongDur += 300; dash.pomoLongRem = dash.pomoLongDur; } } } }
                             }
                         }
-                        // Duration adjust
+                    }
+            }
+
+            // ══════════ CENTER COLUMN (Events) ══════════
+            Column {
+                width: (parent.width - 24) * 0.30; spacing: 10
+
+                Rectangle {
+                    width: parent.width
+                    height: eventsCol.implicitHeight + 16; radius: 14
+                    color: Qt.rgba(1, 1, 1, 0.04); border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.06)
+                    Column {
+                        id: eventsCol; anchors.fill: parent; anchors.margins: 10; spacing: 6
+                        Text { text: String.fromCodePoint(0xf00ed) + " Upcoming"; color: dash.dim
+                            font { pixelSize: 10; family: dash.fontFamily; bold: true } }
+                        Text { text: "Loading..."; color: dash.dim; visible: dash.calLoading && dash.calEvents.length === 0
+                            font { pixelSize: 10; family: dash.fontFamily; italic: true } }
+                        Text { text: "No upcoming events"; color: dash.dim; visible: !dash.calLoading && dash.calEvents.length === 0
+                            font { pixelSize: 10; family: dash.fontFamily; italic: true } }
+                        Repeater {
+                            model: dash.calEvents
+                            Column {
+                                width: parent.width; spacing: 1
+                                Text { text: modelData.time; color: dash.primary
+                                    font { pixelSize: 9; family: dash.fontFamily } }
+                                Text { text: modelData.title; color: dash.fg
+                                    font { pixelSize: 10; family: dash.fontFamily }
+                                    width: parent.width; elide: Text.ElideRight }
+                                Rectangle { width: parent.width; height: 1; color: Qt.rgba(1,1,1,0.04); visible: index < dash.calEvents.length - 1 }
+                            }
+                        }
+                    }
+                }
+
+                // Break timer
+                Rectangle {
+                    width: parent.width; height: 80; radius: 14
+                    color: Qt.rgba(1, 1, 1, 0.04); border.width: 1
+                    border.color: dash.pomoShortRun ? Qt.rgba(0.65, 0.89, 0.63, 0.3) : Qt.rgba(1, 1, 1, 0.06)
+                    Behavior on border.color { ColorAnimation { duration: 200 } }
+                    Column {
+                        anchors.fill: parent; anchors.margins: 8; spacing: 2
+                        Text { text: "BREAK"; color: "#a6e3a1"
+                            font { pixelSize: 8; family: dash.fontFamily; bold: true } }
+                        Text {
+                            text: Math.floor(dash.pomoShortRem / 60).toString().padStart(2, '0') + ":" +
+                                  (dash.pomoShortRem % 60).toString().padStart(2, '0')
+                            color: dash.fg
+                            font { pixelSize: 20; family: dash.fontFamily; bold: true } }
                         Row {
-                            spacing: 8
-                            Text { text: "-"; color: pomoMinusMA.containsMouse ? dash.primary : dash.dim
-                                font { pixelSize: 12; family: dash.fontFamily; bold: true }
+                            spacing: 4
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: psMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
                                 Behavior on color { ColorAnimation { duration: 150 } }
-                                MouseArea { id: pomoMinusMA; anchors.fill: parent; hoverEnabled: true
-                                    onClicked: { if (!dash.pomoRunning && dash.pomoDuration > 300) {
-                                        dash.pomoDuration -= 300; dash.pomoRemaining = dash.pomoDuration; } } }
+                                Text { anchors.centerIn: parent
+                                    text: dash.pomoShortRun ? String.fromCodePoint(0xf03e4) : String.fromCodePoint(0xf040a)
+                                    color: "#a6e3a1"; font { pixelSize: 10; family: dash.fontFamily } }
+                                MouseArea { id: psMA; anchors.fill: parent; hoverEnabled: true
+                                    onClicked: dash.pomoShortRun = !dash.pomoShortRun }
                             }
-                            Text { text: Math.floor(dash.pomoDuration / 60) + " min"; color: dash.dim
-                                font { pixelSize: 9; family: dash.fontFamily } }
-                            Text { text: "+"; color: pomoPlusMA.containsMouse ? dash.primary : dash.dim
-                                font { pixelSize: 12; family: dash.fontFamily; bold: true }
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: rsMA.containsMouse ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
                                 Behavior on color { ColorAnimation { duration: 150 } }
-                                MouseArea { id: pomoPlusMA; anchors.fill: parent; hoverEnabled: true
-                                    onClicked: { if (!dash.pomoRunning && dash.pomoDuration < 3600) {
-                                        dash.pomoDuration += 300; dash.pomoRemaining = dash.pomoDuration; } } }
+                                Text { anchors.centerIn: parent; text: String.fromCodePoint(0xf0453)
+                                    color: dash.dim; font { pixelSize: 10; family: dash.fontFamily } }
+                                MouseArea { id: rsMA; anchors.fill: parent; hoverEnabled: true
+                                    onClicked: { dash.pomoShortRun = false; dash.pomoShortRem = dash.pomoShortDur; } }
                             }
+                            Text { text: "-"; color: msMA.containsMouse ? dash.primary : dash.dim
+                                anchors.verticalCenter: parent.verticalCenter
+                                font { pixelSize: 11; family: dash.fontFamily; bold: true }
+                                Behavior on color { ColorAnimation { duration: 150 } }
+                                MouseArea { id: msMA; anchors.fill: parent; hoverEnabled: true
+                                    onClicked: { if (!dash.pomoShortRun && dash.pomoShortDur > 60) { dash.pomoShortDur -= 60; dash.pomoShortRem = dash.pomoShortDur; } } } }
+                            Text { text: Math.floor(dash.pomoShortDur / 60) + "m"; color: dash.dim
+                                font { pixelSize: 8; family: dash.fontFamily }
+                                anchors.verticalCenter: parent.verticalCenter }
+                            Text { text: "+"; color: asMA.containsMouse ? dash.primary : dash.dim
+                                anchors.verticalCenter: parent.verticalCenter
+                                font { pixelSize: 11; family: dash.fontFamily; bold: true }
+                                Behavior on color { ColorAnimation { duration: 150 } }
+                                MouseArea { id: asMA; anchors.fill: parent; hoverEnabled: true
+                                    onClicked: { if (!dash.pomoShortRun && dash.pomoShortDur < 1800) { dash.pomoShortDur += 60; dash.pomoShortRem = dash.pomoShortDur; } } } }
                         }
                     }
                 }
@@ -287,7 +385,7 @@ PanelWindow {
 
             // ══════════ RIGHT COLUMN ══════════
             Column {
-                width: (parent.width - 12) * 0.62; spacing: 10
+                width: (parent.width - 24) * 0.42; spacing: 10
 
                 // Weather
                 Rectangle {
@@ -413,7 +511,6 @@ PanelWindow {
                     }
                 }
 
-                // (double-click month name to go to today)
             }
         }
     }

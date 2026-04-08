@@ -314,7 +314,7 @@ Scope {
                 // Window title
                 Rectangle {
                     height: root.pillH
-                    width: winT.text !== "" ? Math.max(winT.implicitWidth + root.pillPad, 40) : 0
+                    width: winT.text !== "" ? Math.min(winT.implicitWidth + root.pillPad, 300) : 0
                     radius: root.pillR; color: root.pillBg; border.width: 1; border.color: root.pillBorder
                     clip: true; visible: width > 0
                     Behavior on color { ColorAnimation { duration: 250 } }
@@ -322,7 +322,7 @@ Scope {
                     Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
                     Text { id: winT; anchors.centerIn: parent
                         property string raw: Hyprland.activeToplevel ? (Hyprland.activeToplevel.title || "") : ""
-                        text: raw.length > 25 ? raw.substring(0, 25) + "…" : raw
+                        text: raw.length > 40 ? raw.substring(0, 40) + "…" : raw
                         color: root.dim; font { pixelSize: root.fs; family: root.ff } }
                 }
             }
@@ -454,7 +454,7 @@ Scope {
                         // CJK chars count as 2 toward limit; limit scales with workspace count
                         var wsCount = 0; var wsv = Hyprland.workspaces.values;
                         if (wsv) for (var w = 0; w < wsv.length; w++) if (wsv[w].id >= 1 && wsv[w].id <= 10) wsCount++;
-                        var limit = wsCount <= 6 ? 27 : wsCount === 7 ? 23 : wsCount === 8 ? 20 : wsCount === 9 ? 17 : 15; var count = 0; var cut = info.length;
+                        var limit = wsCount <= 6 ? 23 : wsCount === 7 ? 19 : wsCount === 8 ? 16 : wsCount === 9 ? 13 : 11; var count = 0; var cut = info.length;
                         for (var i = 0; i < info.length; i++) {
                             count += info.charCodeAt(i) > 0x2E80 ? 2 : 1;
                             if (count > limit) { cut = i; break; }
