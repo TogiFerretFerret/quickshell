@@ -313,6 +313,7 @@ Scope {
 
                 // Window title
                 Rectangle {
+                    id: winPill
                     height: root.pillH
                     width: winT.text !== "" ? Math.min(winT.implicitWidth + root.pillPad, 300) : 0
                     radius: root.pillR; color: root.pillBg; border.width: 1; border.color: root.pillBorder
@@ -321,8 +322,11 @@ Scope {
                     Behavior on border.color { ColorAnimation { duration: 250 } }
                     Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
                     Text { id: winT; anchors.centerIn: parent
+                        width: Math.max(0, parent.width - root.pillPad)
                         property string raw: Hyprland.activeToplevel ? (Hyprland.activeToplevel.title || "") : ""
-                        text: raw.length > 40 ? raw.substring(0, 40) + "…" : raw
+                        text: raw
+                        elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignHCenter
                         color: root.dim; font { pixelSize: root.fs; family: root.ff } }
                 }
             }
