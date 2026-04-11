@@ -36,7 +36,10 @@ PanelWindow {
         return base.filter(w => w.name.toLowerCase().includes(wpWindow.searchText.toLowerCase()));
     }
 
-    onFilteredWallpapersChanged: selectedIndex = 0
+    onFilteredWallpapersChanged: {
+        selectedIndex = 0;
+        flickable.contentY = 0; // Reset scroll on change
+    }
 
     visible: showing
     anchors { top: true; bottom: true; left: true; right: true }
@@ -50,20 +53,29 @@ PanelWindow {
         var newIndex = selectedIndex + (row * cols) + col;
         if (newIndex >= 0 && newIndex < filteredWallpapers.length) {
             selectedIndex = newIndex;
-            ensureVisible();
+            ensureVisible(newIndex);
         }
     }
 
-    function ensureVisible() {
-        var row = Math.floor(selectedIndex / 4);
-        var itemHeight = (grid.width / 4) * 0.65 + 20;
-        var viewTop = scroll.contentY;
-        var viewBottom = viewTop + scroll.height;
-        var itemTop = row * itemHeight;
+    function ensureVisible(index) {
+        var cols = 4;
+        var spacing = 20;
+        var row = Math.floor(index / cols);
+        
+        var itemWidth = (grid.width - (spacing * 3)) / cols;
+        var itemHeight = itemWidth * 0.65;
+        
+        var itemTop = row * (itemHeight + spacing);
         var itemBottom = itemTop + itemHeight;
 
-        if (itemTop < viewTop) scroll.contentY = itemTop;
-        else if (itemBottom > viewBottom) scroll.contentY = itemBottom - scroll.height;
+        var viewTop = flickable.contentY;
+        var viewBottom = viewTop + flickable.height;
+
+        if (itemTop < viewTop) {
+            flickable.contentY = itemTop;
+        } else if (itemBottom > viewBottom) {
+            flickable.contentY = itemBottom - flickable.height;
+        }
     }
 
     function applySelected() {
@@ -108,7 +120,7 @@ PanelWindow {
         searchInput.text = "";
         localProc.running = true; 
         collectionProc.running = true;
-        searchInput.forceActiveFocus(); 
+        searchInput.forceActiveFocus(); // Start in Insert Mode
     }
     
     onCurrentTabChanged: {
@@ -128,6 +140,29 @@ PanelWindow {
         border.width: 2; border.color: Qt.rgba(wpWindow.primary.r, wpWindow.primary.g, wpWindow.primary.b, 0.3)
         clip: true
 
+        focus: true
+        Keys.onPressed: (event) => {
+            if (event.key === Qt.Key_Down || event.key === Qt.Key_J) { moveSelection(1, 0); event.accepted = true; }
+            else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) { moveSelection(-1, 0); event.accepted = true; }
+            else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) { moveSelection(0, -1); event.accepted = true; }
+            else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) { moveSelection(0, 1); event.accepted = true; }
+            else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                applySelected();
+                event.accepted = true;
+            } else if (event.key === Qt.Key_Slash) {
+                searchInput.forceActiveFocus();
+                event.accepted = true;
+            } else if (event.key === Qt.Key_Escape) {
+                wpWindow.showing = false;
+                event.accepted = true;
+            } else if (event.key === Qt.Key_Tab) {
+                if (wpWindow.currentTab === "local") wpWindow.currentTab = "collection";
+                else if (wpWindow.currentTab === "collection") wpWindow.currentTab = "online";
+                else wpWindow.currentTab = "local";
+                event.accepted = true;
+            }
+        }
+
         opacity: wpWindow.showing ? 1.0 : 0.0
         scale: wpWindow.showing ? 1.0 : 0.9
         Behavior on opacity { NumberAnimation { duration: 200 } }
@@ -143,6 +178,7 @@ PanelWindow {
                 Layout.fillWidth: true
                 height: 70
                 color: Qt.rgba(1, 1, 1, 0.02)
+                z: 2 // Keep header above the flickable content
                 
                 RowLayout {
                     anchors.fill: parent
@@ -206,11 +242,10 @@ PanelWindow {
                             onTextChanged: wpWindow.searchText = text
                             
                             Keys.onPressed: (event) => {
-                                if (event.key === Qt.Key_Down) { moveSelection(1, 0); event.accepted = true; }
-                                else if (event.key === Qt.Key_Up) { moveSelection(-1, 0); event.accepted = true; }
-                                else if (event.key === Qt.Key_Left) { moveSelection(0, -1); event.accepted = true; }
-                                else if (event.key === Qt.Key_Right) { moveSelection(0, 1); event.accepted = true; }
-                                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                                if (event.key === Qt.Key_Escape || event.key === Qt.Key_Down) {
+                                    mainCard.forceActiveFocus(); // Exit to Normal Mode
+                                    event.accepted = true;
+                                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                                     if (wpWindow.currentTab === "online" && wpWindow.searchText !== "") {
                                         wpWindow.onlineQuery = wpWindow.searchText;
                                         wpWindow.onlineWallpapers = [];
@@ -218,9 +253,15 @@ PanelWindow {
                                         onlineProc.running = true;
                                         wpWindow.searchText = "";
                                         searchInput.text = "";
+                                        mainCard.forceActiveFocus();
                                     } else {
                                         applySelected();
                                     }
+                                    event.accepted = true;
+                                } else if (event.key === Qt.Key_Tab) {
+                                    if (wpWindow.currentTab === "local") wpWindow.currentTab = "collection";
+                                    else if (wpWindow.currentTab === "collection") wpWindow.currentTab = "online";
+                                    else wpWindow.currentTab = "local";
                                     event.accepted = true;
                                 }
                             }
@@ -261,6 +302,7 @@ PanelWindow {
                                 onlineProc.running = true;
                                 wpWindow.searchText = "";
                                 searchInput.text = "";
+                                mainCard.forceActiveFocus();
                             }
                         }
                     }
@@ -276,20 +318,26 @@ PanelWindow {
             Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                z: 1
                 
-                ScrollView {
-                    id: scroll
+                Flickable {
+                    id: flickable
                     anchors.fill: parent
                     anchors.margins: 20
-                    contentWidth: grid.width
-                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+                    contentWidth: width
+                    contentHeight: grid.implicitHeight
+                    boundsBehavior: Flickable.StopAtBounds
+                    clip: true
+                    
+                    ScrollBar.vertical: ScrollBar {
+                        policy: ScrollBar.AsNeeded
+                    }
 
                     Grid {
                         id: grid
                         columns: 4
                         spacing: 20
-                        width: parent.width - 20
+                        width: flickable.width
 
                         Repeater {
                             model: wpWindow.filteredWallpapers
@@ -297,8 +345,9 @@ PanelWindow {
                             delegate: Rectangle {
                                 required property var modelData
                                 required property int index
-                                width: (grid.width - (grid.spacing * (grid.columns - 1))) / grid.columns
-                                height: width * 0.65; radius: 16
+                                width: (grid.width - (grid.spacing * 3)) / 4
+                                height: width * 0.65
+                                radius: 16
                                 color: Qt.rgba(1, 1, 1, 0.03)
                                 border.width: 3
                                 border.color: wpWindow.selectedIndex === index 
@@ -308,7 +357,6 @@ PanelWindow {
                                 
                                 Behavior on border.color { ColorAnimation { duration: 100 } }
 
-                                // Pulsing selection effect
                                 SequentialAnimation on border.color {
                                     running: wpWindow.selectedIndex === index
                                     loops: Animation.Infinite
@@ -319,26 +367,17 @@ PanelWindow {
                                 Image {
                                     anchors.fill: parent
                                     source: modelData.thumb
-                                    sourceSize.width: 320
-                                    sourceSize.height: 200
+                                    sourceSize.width: 320; sourceSize.height: 200
                                     fillMode: Image.PreserveAspectCrop
                                     asynchronous: true
                                     
-                                    // Loading indicator
                                     Rectangle {
                                         anchors.fill: parent
-                                        color: Qt.rgba(0, 0, 0, 0.3)
-                                        visible: parent.status !== Image.Ready
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: "󰄦"
-                                            color: wpWindow.dim
-                                            font.pixelSize: 32
-                                        }
+                                        color: Qt.rgba(0, 0, 0, 0.3); visible: parent.status !== Image.Ready
+                                        Text { anchors.centerIn: parent; text: "󰄦"; color: wpWindow.dim; font.pixelSize: 32 }
                                     }
                                 }
 
-                                // Name overlay on hover or selection
                                 Rectangle {
                                     anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right
                                     height: 40
@@ -351,8 +390,7 @@ PanelWindow {
                                         text: modelData.name
                                         color: wpWindow.fg
                                         font { pixelSize: 11; family: wpWindow.fontFamily; bold: wpWindow.selectedIndex === index }
-                                        elide: Text.ElideRight
-                                        horizontalAlignment: Text.AlignHCenter
+                                        elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter
                                     }
                                 }
 
@@ -372,11 +410,8 @@ PanelWindow {
                 
                 // Empty state / Loading
                 Column {
-                    anchors.centerIn: parent
-                    spacing: 15
-                    visible: (wpWindow.currentTab === "online" && (onlineProc.running || onlineWallpapers.length === 0)) || 
-                             (wpWindow.currentTab === "local" && localWallpapers.length === 0) ||
-                             (wpWindow.currentTab === "collection" && collectionWallpapers.length === 0 && !collectionProc.running)
+                    anchors.centerIn: parent; spacing: 15
+                    visible: wpWindow.filteredWallpapers.length === 0
                     
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -391,10 +426,9 @@ PanelWindow {
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: onlineProc.running ? "Searching Wallhaven..." : 
-                              (wpWindow.currentTab === "online" && onlineWallpapers.length === 0) ? "Type a query and press Enter to search" :
+                              (wpWindow.currentTab === "online" && wpWindow.onlineWallpapers.length === 0) ? "Type a query and press Enter to search" :
                               collectionProc.running ? "Loading saved collection..." : "No wallpapers found"
-                        color: wpWindow.dim
-                        font { pixelSize: 16; family: wpWindow.fontFamily }
+                        color: wpWindow.dim; font { pixelSize: 16; family: wpWindow.fontFamily }
                     }
                 }
             }
@@ -402,21 +436,4 @@ PanelWindow {
     }
 
     Process { id: applyProc }
-
-    // Global Shortcuts
-    Shortcut { sequence: "Escape"; onActivated: wpWindow.showing = false }
-    Shortcut { sequence: "Tab"; onActivated: {
-        if (wpWindow.currentTab === "local") wpWindow.currentTab = "collection";
-        else if (wpWindow.currentTab === "collection") wpWindow.currentTab = "online";
-        else wpWindow.currentTab = "local";
-    } }
-    
-    // HJKL / Vim Binds
-    Shortcut { sequence: "h"; onActivated: moveSelection(0, -1) }
-    Shortcut { sequence: "j"; onActivated: moveSelection(1, 0) }
-    Shortcut { sequence: "k"; onActivated: moveSelection(-1, 0) }
-    Shortcut { sequence: "l"; onActivated: moveSelection(0, 1) }
-    
-    // Also support Space for applying (since Enter might be used in search)
-    Shortcut { sequence: "Space"; onActivated: applySelected() }
 }

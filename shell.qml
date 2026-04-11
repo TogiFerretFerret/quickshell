@@ -148,6 +148,13 @@ Scope {
             try { var j = JSON.parse(data); root.dndActive = (j.alt || "").indexOf("dnd") >= 0; root.notifCount = parseInt(j.text) || 0; } catch(e) {}
         }}
     }
+
+    // Audiophile Telemetry
+    property var audioStats: {"active": false, "rate": "OFF", "format": "--", "type": "Idle", "color": "#5d6172"}
+    Process { id: audioStatsProc; command: ["/home/river/.config/hypr/scripts/audio-telemetry.py"]; running: true
+        stdout: SplitParser { onRead: data => { try { root.audioStats = JSON.parse(data); } catch(e) {} } }
+    }
+
     // Popup management
     function closePopups() { calendarPopup.showing = false; btPopup.showing = false;
         cpuPopup.showing = false; memPopup.showing = false; tempPopup.showing = false;
@@ -316,15 +323,12 @@ Scope {
                     onTooltipHide: root.ttVisible = false
                 }
 
-                // Cava
-                Rectangle {
-                    height: root.pillH; width: 150; radius: root.pillR
-                    color: root.pillBg; border.width: 1; border.color: root.pillBorder
-                    visible: sys.cavaOutput !== ""; clip: true
-                    Behavior on color { ColorAnimation { duration: 250 } }
-                    Behavior on border.color { ColorAnimation { duration: 250 } }
-                    Text { anchors.centerIn: parent; text: sys.cavaOutput
-                        color: root.cPink; font { pixelSize: 14; family: "JetBrainsMono Nerd Font Mono"; letterSpacing: 0 } }
+                // Audiophile Oscilloscope (Integrated replacement for old cava)
+                C.Oscilloscope {
+                    visible: true
+                    rateText: root.audioStats.active ? root.audioStats.rate : "IDLE"
+                    waveColor: root.accent // Pulled dynamically from the current wallpaper via matugen
+                    pillBg: root.pillBg; pillBorder: root.pillBorder
                 }
 
                 // Window title
