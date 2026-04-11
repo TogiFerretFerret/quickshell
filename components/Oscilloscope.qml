@@ -36,6 +36,7 @@ Rectangle {
         }
     }
 
+    // Integrated Rate Text (Left side)
     Text {
         id: rateLabel
         anchors.left: parent.left; anchors.leftMargin: 14
@@ -46,17 +47,33 @@ Rectangle {
         z: 2
     }
 
+    // Dynamic visibility/rendering based on activity
+    readonly property bool active: scope.rateText !== "OFF" && scope.rateText !== "IDLE"
+
     Canvas {
         id: canvas
         anchors.left: rateLabel.right; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom
         anchors.leftMargin: 8; anchors.rightMargin: 12
         renderTarget: Canvas.FramebufferObject
         
+        // Only paint if there is active audio
         onPaint: {
             var ctx = getContext("2d");
             ctx.reset();
             ctx.clearRect(0, 0, width, height);
-            if (scope.samples.length < 2) return;
+            
+            var mid = height / 2;
+            if (!scope.active || scope.samples.length < 2) {
+                // Draw a simple flat line when idle
+                ctx.strokeStyle = scope.waveColor;
+                ctx.globalAlpha = 0.5;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, mid);
+                ctx.lineTo(width, mid);
+                ctx.stroke();
+                return;
+            }
             
             ctx.strokeStyle = scope.waveColor;
             ctx.lineCap = "round"; ctx.lineJoin = "round";
@@ -73,7 +90,6 @@ Rectangle {
 
         function drawWaveform(ctx) {
             var len = scope.samples.length;
-            if (len < 2) return;
             var step = width / (len - 1);
             var mid = height / 2;
             
@@ -84,20 +100,15 @@ Rectangle {
                 
                 if (i > 0 && i < len - 1) {
                     var raw = scope.samples[i];
-                    // Quadratic curve for contrast: smaller things smaller, bigger things bigger
-                    // Multiplied by 2.0 to act as "gain" so it actually reaches the top
                     val = (raw * raw) * 2.0; 
-                    if (val > 1.0) val = 1.0; // Hard clamp at 100%
+                    if (val > 1.0) val = 1.0;
                 }
                 
-                // 85% of half-height gives a safe 15% padding from the absolute edge
                 var maxH = (height / 2) * 0.85;
-                
                 var sign = (i % 2 === 0) ? 1 : -1;
                 pts.push({x: x, y: mid - (val * maxH * sign)});
             }
             
-            // Draw smooth bezier curves instead of harsh jagged lines
             ctx.moveTo(pts[0].x, pts[0].y);
             for (var i = 1; i < len - 2; i++) {
                 var xc = (pts[i].x + pts[i+1].x) / 2;
@@ -110,5 +121,9 @@ Rectangle {
         }
     }
     
-    Timer { interval: 16; running: true; repeat: true; onTriggered: canvas.requestPaint() }
+    Timer { 
+        interval: scope.active ? 25 : 500 // 40 FPS when active, 2 FPS when idle
+        running: true; repeat: true; 
+        onTriggered: canvas.requestPaint() 
+    }
 }

@@ -14,6 +14,7 @@ Item {
     property real hoverScale: 1.034
     property int animDuration: 250
     property bool fixedWidth: false
+    property real progress: -1  // 0.0–1.0 shows progress bar; -1 hides it
 
     // Pill appearance (set by parent)
     property color pillBg: "#111318"
@@ -56,6 +57,34 @@ Item {
             textFormat: pill.label.indexOf("<") >= 0 ? Text.RichText : Text.PlainText
             font { pixelSize: pill.fontSize; family: pill.fontFamily }
             Behavior on color { ColorAnimation { duration: pill.animDuration } }
+        }
+
+    }
+
+    // Progress sweep: bright pill clipped to left portion
+    Item {
+        id: progressOverlay
+        visible: pill.progress >= 0
+        clip: true
+        anchors { top: bg.top; left: bg.left; bottom: bg.bottom }
+        width: pill.progress >= 0 ? Math.max(0, Math.min(1, pill.progress)) * bg.width : 0
+        Behavior on width { NumberAnimation { duration: 1000; easing.type: Easing.Linear } }
+
+        Rectangle {
+            anchors { top: parent.top; left: parent.left; bottom: parent.bottom }
+            width: bg.width
+            radius: pill.pillRadius
+            color: "transparent"
+            border.width: 1
+            border.color: Qt.lighter(pill.pillBorder, 2.5)
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                x: (bg.width - implicitWidth) / 2
+                text: pill.label
+                color: Qt.lighter(pill.labelColor, 1.8)
+                font { pixelSize: pill.fontSize; family: pill.fontFamily }
+            }
         }
     }
 

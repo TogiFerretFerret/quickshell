@@ -131,6 +131,36 @@ Scope {
     property bool dndActive: false
     property int notifCount: 0
 
+    // MPRIS position tracking (position from D-Bus is microseconds and doesn't auto-notify)
+    property real mprisPos: 0   // seconds
+    property real mprisLen: 0   // seconds
+
+    function mprisSyncPos() {
+        if (!root.activePlayer) { root.mprisPos = 0; root.mprisLen = 0; return; }
+        root.mprisPos = root.activePlayer.position || 0;
+        root.mprisLen = root.activePlayer.length  || 0;
+    }
+
+    Timer {
+        id: mprisTimer
+        interval: 1000; repeat: true
+        running: root.activePlayer !== null &&
+                 root.activePlayer.playbackState === MprisPlaybackState.Playing
+        onTriggered: {
+            if (!root.activePlayer) return;
+            root.mprisPos = Math.min(root.mprisPos + 1, root.mprisLen);
+        }
+    }
+
+    onActivePlayerChanged: { root.mprisSyncPos(); mprisTimer.restart(); }
+
+    Connections {
+        target: root.activePlayer
+        function onTrackTitleChanged()    { root.mprisSyncPos(); }
+        function onPlaybackStateChanged() { root.mprisSyncPos(); mprisTimer.restart(); }
+        function onPositionChanged()      { root.mprisPos = root.activePlayer.position || 0; }
+    }
+
     // Launcher processes
     Process { id: idleInhibitOn; command: ["sh", "-c", "systemd-inhibit --what=idle --who=quickshell --why='User requested' --mode=block sleep infinity &"] }
     Process { id: idleInhibitOff; command: ["sh", "-c", "pkill -f 'systemd-inhibit.*quickshell'"] }
@@ -193,7 +223,8 @@ Scope {
         green: root.cGreen }
 
     C.MprisPopup { id: mprisPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
-        secondary: root.secondary; player: root.activePlayer }
+        secondary: root.secondary; player: root.activePlayer
+        mprisPos: root.mprisPos; mprisLen: root.mprisLen }
 
     // Wallpaper picker
     C.WallpaperPicker {
@@ -471,6 +502,7 @@ Scope {
 
                 // MPRIS
                 C.Pill {
+                    progress: root.mprisLen > 0 ? root.mprisPos / root.mprisLen : -1
                     label: { if (!root.activePlayer) return root.iPause + " No media";
                         var icon = root.activePlayer.playbackState === MprisPlaybackState.Playing ? root.iPlay : root.iPause;
                         var a = root.activePlayer.trackArtist || ""; var t = root.activePlayer.trackTitle || "";

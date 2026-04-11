@@ -16,6 +16,8 @@ PanelWindow {
     property string fontFamily: "JetBrainsMono Nerd Font"
     property bool showing: false
     property var player: null
+    property real mprisPos: 0
+    property real mprisLen: 0
 
     visible: showing && player !== null
     anchors { top: true; right: true }
@@ -86,22 +88,30 @@ PanelWindow {
 
                 // Progress bar
                 Rectangle {
+                    id: progressBar
                     width: parent.width; height: 4; radius: 2
                     color: Qt.rgba(1, 1, 1, 0.06)
                     Rectangle {
-                        width: { var l = mprisPopup.player ? mprisPopup.player.length : 0;
-                            var p = mprisPopup.player ? mprisPopup.player.position : 0;
-                            return l > 0 ? parent.width * (p / l) : 0; }
+                        width: mprisPopup.mprisLen > 0 ? parent.width * (mprisPopup.mprisPos / mprisPopup.mprisLen) : 0
                         height: parent.height; radius: 2; color: mprisPopup.primary
+                        Behavior on width { NumberAnimation { duration: 1000; easing.type: Easing.Linear } }
+                    }
+                    MouseArea {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: parent.width; height: 20
+                        anchors.verticalCenter: parent.verticalCenter
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: mouse => {
+                            if (!mprisPopup.player || mprisPopup.mprisLen <= 0) return;
+                            mprisPopup.player.position = (mouse.x / progressBar.width) * mprisPopup.mprisLen;
+                        }
                     }
                 }
 
                 // Time
                 Text {
-                    property int pos: mprisPopup.player ? Math.floor(mprisPopup.player.position || 0) : 0
-                    property int len: mprisPopup.player ? Math.floor(mprisPopup.player.length || 0) : 0
-                    function fmt(s) { return Math.floor(s/60) + ":" + ("0" + (s%60)).slice(-2); }
-                    text: len > 0 ? fmt(pos) + " / " + fmt(len) : ""
+                    function fmt(s) { return Math.floor(s/60) + ":" + ("0" + (Math.floor(s)%60)).slice(-2); }
+                    text: mprisPopup.mprisLen > 0 ? fmt(mprisPopup.mprisPos) + " / " + fmt(mprisPopup.mprisLen) : ""
                     color: mprisPopup.dim; font { pixelSize: 10; family: mprisPopup.fontFamily } }
 
                 // Controls
