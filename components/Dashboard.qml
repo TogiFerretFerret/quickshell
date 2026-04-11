@@ -65,15 +65,7 @@ PanelWindow {
     }
 
     // ── Fetch weather + hourly ──
-    Process { id: weatherProc; command: ["sh", "-c",
-        "curl -s 'wttr.in/?format=j1' 2>/dev/null | python3 -c \"" +
-        "import json,sys; d=json.load(sys.stdin); c=d['current_condition'][0]; " +
-        "print(c['temp_C']); print(c['FeelsLikeC']); print(c['weatherDesc'][0]['value']); " +
-        "print(c['humidity']); print(c['windspeedKmph'] + ' ' + c['winddir16Point']); " +
-        "import datetime; now=datetime.datetime.now(); h=now.hour; " +
-        "today=d['weather'][0]['hourly']; tomorrow=d['weather'][1]['hourly'] if len(d['weather'])>1 else []; " +
-        "hours=today+tomorrow; " +
-        "[print(x['time'].zfill(4)[:2]+':00|'+x['tempC']+'|'+x['weatherDesc'][0]['value']) for x in hours if int(x['time'].zfill(4)[:2])>=h or x in tomorrow][:6]\""]
+    Process { id: weatherProc; command: ["python3", Quickshell.env("HOME") + "/.config/hypr/scripts/weather.py"]
         stdout: StdioCollector { onStreamFinished: {
             var lines = text.trim().split("\n");
             if (lines.length >= 5) {

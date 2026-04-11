@@ -188,6 +188,22 @@ Scope {
     C.MprisPopup { id: mprisPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
         secondary: root.secondary; player: root.activePlayer }
 
+    // Wallpaper picker
+    C.WallpaperPicker {
+        id: wallpaperPicker
+        bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+        green: root.cGreen; yellow: root.cYellow
+    }
+
+    FileView {
+        path: "file:///tmp/qs-wallpaper-picker"
+        watchChanges: true
+        onFileChanged: {
+            if (wallpaperPicker.showing) wallpaperPicker.showing = false;
+            else wallpaperPicker.showing = true;
+        }
+    }
+
     // Power menu overlay
     C.PowerMenu {
         id: powerMenu
