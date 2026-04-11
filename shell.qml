@@ -366,7 +366,7 @@ Scope {
                 Rectangle {
                     id: winPill
                     height: root.pillH
-                    width: winT.text !== "" ? Math.min(winT.implicitWidth + root.pillPad, 300) : 0
+                    width: winT.text !== "" ? Math.min(winT.implicitWidth + root.pillPad, 200) : 0
                     radius: root.pillR; color: root.pillBg; border.width: 1; border.color: root.pillBorder
                     clip: true; visible: width > 0
                     Behavior on color { ColorAnimation { duration: 250 } }
