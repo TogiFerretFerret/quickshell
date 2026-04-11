@@ -57,6 +57,8 @@ PanelWindow {
     }
 
     onShowingChanged: if (showing) { 
+        wpWindow.searchText = "";
+        searchInput.text = "";
         localProc.running = true; 
         collectionProc.running = true;
         if (currentTab === "online") onlineProc.running = true;
@@ -64,6 +66,8 @@ PanelWindow {
     }
     
     onCurrentTabChanged: {
+        wpWindow.searchText = "";
+        searchInput.text = "";
         if (showing && currentTab === "online" && onlineWallpapers.length === 0) onlineProc.running = true;
         if (showing && currentTab === "collection") collectionProc.running = true;
     }
