@@ -173,7 +173,7 @@ Scope {
     Process { id: swayncDnd; command: ["swaync-client", "-d", "-sw"]
         onRunningChanged: if (!running) root.dndActive = !root.dndActive }
     // Subscribe to swaync status changes (long-running, fires on every state change)
-    Process { id: dndWatch; command: ["swaync-client", "-swb"]; running: true
+    Process { id: dndWatch; command: ["sh", "-c", "pkill -f 'swaync-client -swb' 2>/dev/null; exec swaync-client -swb"]; running: true
         stdout: SplitParser { onRead: data => {
             try { var j = JSON.parse(data); root.dndActive = (j.alt || "").indexOf("dnd") >= 0; root.notifCount = parseInt(j.text) || 0; } catch(e) {}
         }}
