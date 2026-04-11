@@ -23,6 +23,7 @@ PanelWindow {
     property var collectionWallpapers: []
     property var onlineWallpapers: []
     property string searchText: ""
+    property string onlineQuery: ""
     property string currentTab: "local" // "local", "collection", or "online"
 
     visible: showing
@@ -50,25 +51,31 @@ PanelWindow {
 
     Process {
         id: onlineProc
-        command: ["/home/river/.config/hypr/scripts/wallpaper-list.py", "--online-only", "--query", wpWindow.searchText || "citlali"]
+        command: ["python3", "/home/river/.config/hypr/scripts/wallpaper-list.py", "--online-only", "--query", wpWindow.onlineQuery]
+        onRunningChanged: if (running) console.log("Online search started for: " + wpWindow.onlineQuery);
         stdout: SplitParser { onRead: data => {
-            try { wpWindow.onlineWallpapers = JSON.parse(data); } catch(e) {}
+            try { 
+                var parsed = JSON.parse(data);
+                console.log("Online search finished, found " + parsed.length + " results.");
+                wpWindow.onlineWallpapers = parsed; 
+            } catch(e) { console.log("Online Parse Error: " + e + "\nData: " + data); }
         }}
     }
 
     onShowingChanged: if (showing) { 
         wpWindow.searchText = "";
+        wpWindow.onlineQuery = "";
         searchInput.text = "";
         localProc.running = true; 
         collectionProc.running = true;
-        if (currentTab === "online") onlineProc.running = true;
+        // Don't auto-run online search anymore
         searchInput.forceActiveFocus(); 
     }
     
     onCurrentTabChanged: {
         wpWindow.searchText = "";
         searchInput.text = "";
-        if (showing && currentTab === "online" && onlineWallpapers.length === 0) onlineProc.running = true;
+        // Don't auto-run online search here either
         if (showing && currentTab === "collection") collectionProc.running = true;
     }
 
@@ -159,7 +166,16 @@ PanelWindow {
                             color: wpWindow.fg
                             font { pixelSize: 13; family: wpWindow.fontFamily }
                             onTextChanged: wpWindow.searchText = text
-                            onAccepted: if (wpWindow.currentTab === "online") onlineProc.running = true
+                            onAccepted: {
+                                if (wpWindow.currentTab === "online") {
+                                    wpWindow.onlineQuery = wpWindow.searchText;
+                                    wpWindow.onlineWallpapers = []; // Clear current results to show loading state
+                                    onlineProc.running = false;
+                                    onlineProc.running = true;
+                                    wpWindow.searchText = ""; // Clear filter so we see the new results
+                                    searchInput.text = "";
+                                }
+                            }
                             
                             Text {
                                 text: wpWindow.currentTab === "online" ? "Search online..." : "Filter list..."
@@ -177,8 +193,28 @@ PanelWindow {
                         width: 36; height: 36; radius: 18
                         color: refreshMA.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.05)
                         visible: wpWindow.currentTab === "online"
-                        Text { anchors.centerIn: parent; text: "󰄭"; color: wpWindow.fg; font.pixelSize: 16 }
-                        MouseArea { id: refreshMA; anchors.fill: parent; hoverEnabled: true; onClicked: onlineProc.running = true }
+                        
+                        Text { 
+                            anchors.centerIn: parent; 
+                            text: onlineProc.running ? "󰑐" : "󰄭"; 
+                            color: wpWindow.fg; 
+                            font.pixelSize: 16 
+                            RotationAnimation on rotation {
+                                from: 0; to: 360; duration: 1000; loops: Animation.Infinite; 
+                                running: onlineProc.running
+                            }
+                        }
+                        
+                        MouseArea { id: refreshMA; anchors.fill: parent; hoverEnabled: true; 
+                            onClicked: {
+                                wpWindow.onlineQuery = wpWindow.searchText;
+                                wpWindow.onlineWallpapers = [];
+                                onlineProc.running = false;
+                                onlineProc.running = true;
+                                wpWindow.searchText = "";
+                                searchInput.text = "";
+                            }
+                        }
                     }
                 }
                 
@@ -284,7 +320,7 @@ PanelWindow {
                 Column {
                     anchors.centerIn: parent
                     spacing: 15
-                    visible: (wpWindow.currentTab === "online" && onlineProc.running) || 
+                    visible: (wpWindow.currentTab === "online" && (onlineProc.running || onlineWallpapers.length === 0)) || 
                              (wpWindow.currentTab === "local" && localWallpapers.length === 0) ||
                              (wpWindow.currentTab === "collection" && collectionWallpapers.length === 0 && !collectionProc.running)
                     
@@ -295,12 +331,13 @@ PanelWindow {
                         font.pixelSize: 48
                         RotationAnimation on rotation {
                             from: 0; to: 360; duration: 1000; loops: Animation.Infinite; 
-                            running: onlineProc.running || collectionProc.running
+                            running: (onlineProc.running || collectionProc.running)
                         }
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: onlineProc.running ? "Fetching from Wallhaven..." : 
+                        text: onlineProc.running ? "Searching Wallhaven..." : 
+                              (wpWindow.currentTab === "online" && onlineWallpapers.length === 0) ? "Type a query and press Enter to search" :
                               collectionProc.running ? "Loading saved collection..." : "No wallpapers found"
                         color: wpWindow.dim
                         font { pixelSize: 16; family: wpWindow.fontFamily }
