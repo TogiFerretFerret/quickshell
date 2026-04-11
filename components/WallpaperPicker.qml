@@ -26,12 +26,54 @@ PanelWindow {
     property string onlineQuery: ""
     property string currentTab: "local" // "local", "collection", or "online"
 
+    // Keyboard Navigation State
+    property int selectedIndex: 0
+    property var filteredWallpapers: {
+        var base = wpWindow.currentTab === "local" ? wpWindow.localWallpapers : 
+                   wpWindow.currentTab === "collection" ? wpWindow.collectionWallpapers :
+                   wpWindow.onlineWallpapers;
+        if (wpWindow.searchText === "") return base;
+        return base.filter(w => w.name.toLowerCase().includes(wpWindow.searchText.toLowerCase()));
+    }
+
+    onFilteredWallpapersChanged: selectedIndex = 0
+
     visible: showing
     anchors { top: true; bottom: true; left: true; right: true }
     WlrLayershell.layer: WlrLayer.Overlay
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     color: Qt.rgba(0, 0, 0, 0.5) // Scrim
+
+    function moveSelection(row, col) {
+        var cols = 4;
+        var newIndex = selectedIndex + (row * cols) + col;
+        if (newIndex >= 0 && newIndex < filteredWallpapers.length) {
+            selectedIndex = newIndex;
+            ensureVisible();
+        }
+    }
+
+    function ensureVisible() {
+        var row = Math.floor(selectedIndex / 4);
+        var itemHeight = (grid.width / 4) * 0.65 + 20;
+        var viewTop = scroll.contentY;
+        var viewBottom = viewTop + scroll.height;
+        var itemTop = row * itemHeight;
+        var itemBottom = itemTop + itemHeight;
+
+        if (itemTop < viewTop) scroll.contentY = itemTop;
+        else if (itemBottom > viewBottom) scroll.contentY = itemBottom - scroll.height;
+    }
+
+    function applySelected() {
+        if (selectedIndex >= 0 && selectedIndex < filteredWallpapers.length) {
+            var wall = filteredWallpapers[selectedIndex];
+            applyProc.command = ["/home/river/.config/hypr/scripts/apply-wallpaper.sh", wall.source, wall.full, wall.name];
+            applyProc.running = true;
+            wpWindow.showing = false;
+        }
+    }
 
     Process {
         id: localProc
@@ -52,13 +94,11 @@ PanelWindow {
     Process {
         id: onlineProc
         command: ["python3", "/home/river/.config/hypr/scripts/wallpaper-list.py", "--online-only", "--query", wpWindow.onlineQuery]
-        onRunningChanged: if (running) console.log("Online search started for: " + wpWindow.onlineQuery);
         stdout: SplitParser { onRead: data => {
             try { 
                 var parsed = JSON.parse(data);
-                console.log("Online search finished, found " + parsed.length + " results.");
                 wpWindow.onlineWallpapers = parsed; 
-            } catch(e) { console.log("Online Parse Error: " + e + "\nData: " + data); }
+            } catch(e) {}
         }}
     }
 
@@ -68,14 +108,12 @@ PanelWindow {
         searchInput.text = "";
         localProc.running = true; 
         collectionProc.running = true;
-        // Don't auto-run online search anymore
         searchInput.forceActiveFocus(); 
     }
     
     onCurrentTabChanged: {
         wpWindow.searchText = "";
         searchInput.text = "";
-        // Don't auto-run online search here either
         if (showing && currentTab === "collection") collectionProc.running = true;
     }
 
@@ -166,14 +204,24 @@ PanelWindow {
                             color: wpWindow.fg
                             font { pixelSize: 13; family: wpWindow.fontFamily }
                             onTextChanged: wpWindow.searchText = text
-                            onAccepted: {
-                                if (wpWindow.currentTab === "online") {
-                                    wpWindow.onlineQuery = wpWindow.searchText;
-                                    wpWindow.onlineWallpapers = []; // Clear current results to show loading state
-                                    onlineProc.running = false;
-                                    onlineProc.running = true;
-                                    wpWindow.searchText = ""; // Clear filter so we see the new results
-                                    searchInput.text = "";
+                            
+                            Keys.onPressed: (event) => {
+                                if (event.key === Qt.Key_Down) { moveSelection(1, 0); event.accepted = true; }
+                                else if (event.key === Qt.Key_Up) { moveSelection(-1, 0); event.accepted = true; }
+                                else if (event.key === Qt.Key_Left) { moveSelection(0, -1); event.accepted = true; }
+                                else if (event.key === Qt.Key_Right) { moveSelection(0, 1); event.accepted = true; }
+                                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                                    if (wpWindow.currentTab === "online" && wpWindow.searchText !== "") {
+                                        wpWindow.onlineQuery = wpWindow.searchText;
+                                        wpWindow.onlineWallpapers = [];
+                                        onlineProc.running = false;
+                                        onlineProc.running = true;
+                                        wpWindow.searchText = "";
+                                        searchInput.text = "";
+                                    } else {
+                                        applySelected();
+                                    }
+                                    event.accepted = true;
                                 }
                             }
                             
@@ -230,6 +278,7 @@ PanelWindow {
                 Layout.fillHeight: true
                 
                 ScrollView {
+                    id: scroll
                     anchors.fill: parent
                     anchors.margins: 20
                     contentWidth: grid.width
@@ -243,23 +292,29 @@ PanelWindow {
                         width: parent.width - 20
 
                         Repeater {
-                            model: {
-                                var base = wpWindow.currentTab === "local" ? wpWindow.localWallpapers : 
-                                           wpWindow.currentTab === "collection" ? wpWindow.collectionWallpapers :
-                                           wpWindow.onlineWallpapers;
-                                if (wpWindow.searchText === "") return base;
-                                return base.filter(w => w.name.toLowerCase().includes(wpWindow.searchText.toLowerCase()));
-                            }
+                            model: wpWindow.filteredWallpapers
 
                             delegate: Rectangle {
                                 required property var modelData
+                                required property int index
                                 width: (grid.width - (grid.spacing * (grid.columns - 1))) / grid.columns
                                 height: width * 0.65; radius: 16
                                 color: Qt.rgba(1, 1, 1, 0.03)
-                                border.width: 2; border.color: itemMA.containsMouse ? wpWindow.primary : Qt.rgba(1, 1, 1, 0.05)
+                                border.width: 3
+                                border.color: wpWindow.selectedIndex === index 
+                                    ? wpWindow.primary 
+                                    : (itemMA.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.05))
                                 clip: true
                                 
-                                Behavior on border.color { ColorAnimation { duration: 150 } }
+                                Behavior on border.color { ColorAnimation { duration: 100 } }
+
+                                // Pulsing selection effect
+                                SequentialAnimation on border.color {
+                                    running: wpWindow.selectedIndex === index
+                                    loops: Animation.Infinite
+                                    ColorAnimation { to: Qt.lighter(wpWindow.primary, 1.2); duration: 800 }
+                                    ColorAnimation { to: wpWindow.primary; duration: 800 }
+                                }
 
                                 Image {
                                     anchors.fill: parent
@@ -283,19 +338,19 @@ PanelWindow {
                                     }
                                 }
 
-                                // Name overlay on hover
+                                // Name overlay on hover or selection
                                 Rectangle {
                                     anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right
                                     height: 40
                                     color: Qt.rgba(0, 0, 0, 0.7)
-                                    visible: itemMA.containsMouse
+                                    visible: itemMA.containsMouse || wpWindow.selectedIndex === index
                                     
                                     Text {
                                         anchors.centerIn: parent
                                         width: parent.width - 20
                                         text: modelData.name
                                         color: wpWindow.fg
-                                        font { pixelSize: 11; family: wpWindow.fontFamily }
+                                        font { pixelSize: 11; family: wpWindow.fontFamily; bold: wpWindow.selectedIndex === index }
                                         elide: Text.ElideRight
                                         horizontalAlignment: Text.AlignHCenter
                                     }
@@ -306,9 +361,8 @@ PanelWindow {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     onClicked: {
-                                        applyProc.command = ["/home/river/.config/hypr/scripts/apply-wallpaper.sh", modelData.source, modelData.full, modelData.name];
-                                        applyProc.running = true;
-                                        wpWindow.showing = false;
+                                        wpWindow.selectedIndex = index;
+                                        applySelected();
                                     }
                                 }
                             }
@@ -349,11 +403,20 @@ PanelWindow {
 
     Process { id: applyProc }
 
-    // Keyboard
+    // Global Shortcuts
     Shortcut { sequence: "Escape"; onActivated: wpWindow.showing = false }
     Shortcut { sequence: "Tab"; onActivated: {
         if (wpWindow.currentTab === "local") wpWindow.currentTab = "collection";
         else if (wpWindow.currentTab === "collection") wpWindow.currentTab = "online";
         else wpWindow.currentTab = "local";
     } }
+    
+    // HJKL / Vim Binds
+    Shortcut { sequence: "h"; onActivated: moveSelection(0, -1) }
+    Shortcut { sequence: "j"; onActivated: moveSelection(1, 0) }
+    Shortcut { sequence: "k"; onActivated: moveSelection(-1, 0) }
+    Shortcut { sequence: "l"; onActivated: moveSelection(0, 1) }
+    
+    // Also support Space for applying (since Enter might be used in search)
+    Shortcut { sequence: "Space"; onActivated: applySelected() }
 }
