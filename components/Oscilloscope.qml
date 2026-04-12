@@ -7,6 +7,10 @@ Rectangle {
     width: 180; height: 34; radius: 17
     clip: true
     
+    scale: scopeMA.containsMouse ? 1.033727 : 1.0
+    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+    MouseArea { id: scopeMA; anchors.fill: parent; hoverEnabled: true }
+    
     // These will be passed from shell.qml to match the theme
     property color pillBg: "#000000"
     property color pillBorder: "#ffffff"

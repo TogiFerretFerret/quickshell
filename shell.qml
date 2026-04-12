@@ -369,9 +369,14 @@ Scope {
                     width: winT.text !== "" ? Math.min(winT.implicitWidth + root.pillPad, 200) : 0
                     radius: root.pillR; color: root.pillBg; border.width: 1; border.color: root.pillBorder
                     clip: true; visible: width > 0
+                    scale: winMA.containsMouse ? 1.033727 : 1.0
                     Behavior on color { ColorAnimation { duration: 250 } }
                     Behavior on border.color { ColorAnimation { duration: 250 } }
                     Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                    
+                    MouseArea { id: winMA; anchors.fill: parent; hoverEnabled: true }
+
                     Text { id: winT; anchors.centerIn: parent
                         width: Math.max(0, parent.width - root.pillPad)
                         property string raw: Hyprland.activeToplevel ? (Hyprland.activeToplevel.title || "") : ""
@@ -410,10 +415,10 @@ Scope {
                                 visible: occupied || active
                                 width: active ? 36 : 28; height: 32; radius: 16
                                 color: active ? root.primary : "transparent"
-                                scale: wsH.containsMouse ? 1.1 : 1.0
+                                scale: wsH.containsMouse ? 1.033727 : 1.0
                                 Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
                                 Behavior on color { ColorAnimation { duration: 200 } }
-                                Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutBack } }
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                                 Text { anchors.centerIn: parent; text: parent.wsId
                                     color: parent.active ? root.bg : root.dim
                                     font { pixelSize: root.fs; bold: parent.active; family: root.ff }
@@ -543,9 +548,17 @@ Scope {
                     height: root.pillH; width: trayRow.implicitWidth + 16; radius: root.pillR
                     color: root.pillBg; border.width: 1; border.color: root.pillBorder
                     visible: trayRepeater.count > 0
+                    scale: trayMA.containsMouse ? 1.033727 : 1.0
                     Behavior on color { ColorAnimation { duration: 250 } }
                     Behavior on border.color { ColorAnimation { duration: 250 } }
                     Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                    
+                    MouseArea { 
+                        id: trayMA; anchors.fill: parent; hoverEnabled: true; 
+                        propagateComposedEvents: true; onWheel: (wheel) => wheel.accepted = false 
+                    }
+
                     Row { id: trayRow; anchors.centerIn: parent; spacing: 6
 
                         // Tray items

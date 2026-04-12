@@ -11,7 +11,7 @@ Item {
     property int fontSize: 15
     property int minWidth: 0
     property bool interactive: true
-    property real hoverScale: 1.034
+    property real hoverScale: 1.033727
     property int animDuration: 250
     property bool fixedWidth: false
     property real progress: -1  // 0.0–1.0 shows progress bar; -1 hides it
@@ -34,6 +34,9 @@ Item {
 
     implicitHeight: pillHeight
     implicitWidth: Math.max(labelText.implicitWidth + pillPadding, minWidth, pillHeight)
+    
+    scale: pill.interactive && ma.containsMouse ? pill.hoverScale : 1.0
+    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
 
     Rectangle {
         id: bg
@@ -42,12 +45,10 @@ Item {
         color: pill.pillBg
         border.width: 1
         border.color: pill.pillBorder
-        scale: pill.interactive && ma.containsMouse ? pill.hoverScale : 1.0
         smooth: true
 
         Behavior on color { ColorAnimation { duration: pill.animDuration } }
         Behavior on border.color { ColorAnimation { duration: pill.animDuration } }
-        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
 
         Text {
             id: labelText
