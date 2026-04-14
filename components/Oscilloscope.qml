@@ -97,14 +97,18 @@ Rectangle {
             var step = width / (len - 1);
             var mid = height / 2;
             
+            var peak = 0;
+            for (var i = 0; i < len; i++) { if (scope.samples[i] > peak) peak = scope.samples[i]; }
+            var norm = peak > 0.01 ? peak : 1.0;
+
             var pts = [];
             for (var i = 0; i < len; i++) {
                 var x = i * step;
                 var val = 0;
-                
+
                 if (i > 0 && i < len - 1) {
-                    var raw = scope.samples[i];
-                    val = (raw * raw) * 2.0; 
+                    var raw = scope.samples[i] / norm;
+                    val = Math.pow(raw, 0.6);
                     if (val > 1.0) val = 1.0;
                 }
                 
