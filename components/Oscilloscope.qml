@@ -108,7 +108,7 @@ Rectangle {
 
                 if (i > 0 && i < len - 1) {
                     var raw = scope.samples[i] / norm;
-                    val = Math.pow(raw, 0.6);
+                    val = Math.pow(raw, 1.8);
                     if (val > 1.0) val = 1.0;
                 }
                 
