@@ -6,23 +6,23 @@ Rectangle {
     id: scope
     width: 180; height: 34; radius: 17
     clip: true
-    
+
     scale: scopeMA.containsMouse ? 1.033727 : 1.0
     Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
     MouseArea { id: scopeMA; anchors.fill: parent; hoverEnabled: true }
-    
-    // These will be passed from shell.qml to match the theme
+
     property color pillBg: "#000000"
     property color pillBorder: "#ffffff"
     property color waveColor: "#a6e3a1"
     property string rateText: "OFF"
-    
+
     color: pillBg
     border.width: 1
     border.color: pillBorder
-    
+
     property var samples: []
-    
+    readonly property bool active: scope.rateText !== "OFF" && scope.rateText !== "IDLE"
+
     Process {
         id: cavaProc
         command: ["cava", "-p", "/home/river/.config/hypr/scripts/cava-scope.conf"]
@@ -40,7 +40,25 @@ Rectangle {
         }
     }
 
-    // Integrated Rate Text (Left side)
+    // Normalize samples
+    property var normSamples: {
+        var s = scope.samples;
+        var len = Math.min(s.length, 32);
+        var peak = 0.0;
+        for (var i = 0; i < len; i++) { if (s[i] > peak) peak = s[i]; }
+        var norm = peak > 0.01 ? peak : 1.0;
+        var out = [];
+        for (var i = 0; i < 32; i++) {
+            if (i < len) {
+                var raw = s[i] / norm;
+                out.push(Math.min(Math.pow(raw, 1.8), 1.0));
+            } else {
+                out.push(0.0);
+            }
+        }
+        return out;
+    }
+
     Text {
         id: rateLabel
         anchors.left: parent.left; anchors.leftMargin: 14
@@ -51,87 +69,27 @@ Rectangle {
         z: 2
     }
 
-    // Dynamic visibility/rendering based on activity
-    readonly property bool active: scope.rateText !== "OFF" && scope.rateText !== "IDLE"
-
-    Canvas {
-        id: canvas
-        anchors.left: rateLabel.right; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom
+    ShaderEffect {
+        id: waveShader
+        anchors.left: rateLabel.right; anchors.right: parent.right
+        anchors.top: parent.top; anchors.bottom: parent.bottom
         anchors.leftMargin: 8; anchors.rightMargin: 12
-        renderTarget: Canvas.FramebufferObject
-        
-        // Only paint if there is active audio
-        onPaint: {
-            var ctx = getContext("2d");
-            ctx.reset();
-            ctx.clearRect(0, 0, width, height);
-            
-            var mid = height / 2;
-            if (!scope.active || scope.samples.length < 2) {
-                // Draw a simple flat line when idle
-                ctx.strokeStyle = scope.waveColor;
-                ctx.globalAlpha = 0.5;
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(0, mid);
-                ctx.lineTo(width, mid);
-                ctx.stroke();
-                return;
-            }
-            
-            ctx.strokeStyle = scope.waveColor;
-            ctx.lineCap = "round"; ctx.lineJoin = "round";
-            
-            ctx.beginPath();
-            ctx.globalAlpha = 0.2; ctx.lineWidth = 3;
-            drawWaveform(ctx); ctx.stroke();
-            
-            ctx.beginPath();
-            ctx.globalAlpha = 1.0; ctx.lineWidth = 1.2;
-            ctx.shadowBlur = 6; ctx.shadowColor = scope.waveColor;
-            drawWaveform(ctx); ctx.stroke();
-        }
 
-        function drawWaveform(ctx) {
-            var len = scope.samples.length;
-            var step = width / (len - 1);
-            var mid = height / 2;
-            
-            var peak = 0;
-            for (var i = 0; i < len; i++) { if (scope.samples[i] > peak) peak = scope.samples[i]; }
-            var norm = peak > 0.01 ? peak : 1.0;
+        property real isActive: scope.active ? 1.0 : 0.0
+        property real sampleCount: Math.min(scope.samples.length, 32)
+        property real pixelHeight: waveShader.height
+        property color waveColor: scope.waveColor
+        property vector4d widthRatio: Qt.vector4d(waveShader.width / waveShader.height, 0, 0, 0)
+        property vector4d b0: Qt.vector4d(normSamples[0],  normSamples[1],  normSamples[2],  normSamples[3])
+        property vector4d b1: Qt.vector4d(normSamples[4],  normSamples[5],  normSamples[6],  normSamples[7])
+        property vector4d b2: Qt.vector4d(normSamples[8],  normSamples[9],  normSamples[10], normSamples[11])
+        property vector4d b3: Qt.vector4d(normSamples[12], normSamples[13], normSamples[14], normSamples[15])
+        property vector4d b4: Qt.vector4d(normSamples[16], normSamples[17], normSamples[18], normSamples[19])
+        property vector4d b5: Qt.vector4d(normSamples[20], normSamples[21], normSamples[22], normSamples[23])
+        property vector4d b6: Qt.vector4d(normSamples[24], normSamples[25], normSamples[26], normSamples[27])
+        property vector4d b7: Qt.vector4d(normSamples[28], normSamples[29], normSamples[30], normSamples[31])
 
-            var pts = [];
-            for (var i = 0; i < len; i++) {
-                var x = i * step;
-                var val = 0;
-
-                if (i > 0 && i < len - 1) {
-                    var raw = scope.samples[i] / norm;
-                    val = Math.pow(raw, 1.8);
-                    if (val > 1.0) val = 1.0;
-                }
-                
-                var maxH = (height / 2) * 0.85;
-                var sign = (i % 2 === 0) ? 1 : -1;
-                pts.push({x: x, y: mid - (val * maxH * sign)});
-            }
-            
-            ctx.moveTo(pts[0].x, pts[0].y);
-            for (var i = 1; i < len - 2; i++) {
-                var xc = (pts[i].x + pts[i+1].x) / 2;
-                var yc = (pts[i].y + pts[i+1].y) / 2;
-                ctx.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
-            }
-            if (len > 2) {
-                ctx.quadraticCurveTo(pts[len-2].x, pts[len-2].y, pts[len-1].x, pts[len-1].y);
-            }
-        }
-    }
-    
-    Timer { 
-        interval: scope.active ? 25 : 500 // 40 FPS when active, 2 FPS when idle
-        running: true; repeat: true; 
-        onTriggered: canvas.requestPaint() 
+        blending: true
+        fragmentShader: "oscilloscope.frag.qsb"
     }
 }
