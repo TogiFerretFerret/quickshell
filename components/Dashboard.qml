@@ -389,14 +389,14 @@ PanelWindow {
                             spacing: 2
                             Text { text: dash.weatherIcon; color: dash.primary
                                 font { pixelSize: 32; family: dash.fontFamily } }
-                            Text { text: dash.weatherTemp + "°C"; color: dash.fg
+                            Text { text: dash.weatherTemp + "°F"; color: dash.fg
                                 font { pixelSize: 20; family: dash.fontFamily; bold: true } }
                         }
                         Column {
                             spacing: 3; anchors.verticalCenter: parent.verticalCenter
                             Text { text: dash.weatherDesc; color: dash.fg
                                 font { pixelSize: 12; family: dash.fontFamily } }
-                            Text { text: "Feels like " + dash.weatherFeels + "°C"; color: dash.dim
+                            Text { text: "Feels like " + dash.weatherFeels + "°F"; color: dash.dim
                                 font { pixelSize: 10; family: dash.fontFamily } }
                             Text { text: String.fromCodePoint(0xf0593) + " " + dash.weatherWind + "  " +
                                    String.fromCodePoint(0xf058e) + " " + dash.weatherHumidity + "%"
