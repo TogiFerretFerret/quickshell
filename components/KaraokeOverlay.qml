@@ -116,49 +116,33 @@ PanelWindow {
         anchors.fill: parent
         color: karaoke.bg
 
-        // Blurred album art as background
+        // Album art as shader source
         Image {
-            anchors.fill: parent; opacity: 0.15
+            id: artBgImg
+            anchors.fill: parent
             source: artProc.bgPath; fillMode: Image.PreserveAspectCrop
-            visible: status === Image.Ready
+            visible: false // hidden, fed into shader
         }
 
-        // ── Background aurora shader ──
+        // ── Art-based animated background ──
         ShaderEffect {
-            anchors.fill: parent; blending: true
+            anchors.fill: parent
+            property var src: artBgImg
             property real iTime: karaoke._elapsed
-            property real progress: karaoke.mprisLen > 0 ? karaoke.mprisPos / karaoke.mprisLen : 0
             property real isPlaying: karaoke.player && karaoke.player.playbackState === MprisPlaybackState.Playing ? 1.0 : 0.0
-            property color color1: karaoke.artColor
-            property color color2: karaoke.accent2
-            property color color3: karaoke.accent3
-            fragmentShader: "karaoke-bg.frag.qsb"
+            property real energy: {
+                var s = karaoke.samples; var sum = 0;
+                for (var i = 0; i < s.length; i++) sum += s[i];
+                return s.length > 0 ? sum / s.length : 0;
+            }
+            property real bass: {
+                var s = karaoke.samples;
+                return s.length >= 4 ? (s[0] + s[1] + s[2] + s[3]) / 4 : 0;
+            }
+            property real kick: Math.max(0, bass - 0.5) * 2.0
+            fragmentShader: "karaoke-artbg.frag.qsb"
         }
 
-        // ── Big oscilloscope wave ──
-        ShaderEffect {
-            id: bigScope
-            anchors.left: parent.left; anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            height: 200
-            blending: true
-
-            property real isActive: karaoke.player && karaoke.player.playbackState === MprisPlaybackState.Playing ? 1.0 : 0.0
-            property real sampleCount: Math.min(karaoke.samples.length, 32)
-            property real pixelHeight: bigScope.height
-            property color waveColor: karaoke.artColor
-            property vector4d widthRatio: Qt.vector4d(bigScope.width / bigScope.height, 0, 0, 0)
-            property vector4d b0: Qt.vector4d(normSamples[0],  normSamples[1],  normSamples[2],  normSamples[3])
-            property vector4d b1: Qt.vector4d(normSamples[4],  normSamples[5],  normSamples[6],  normSamples[7])
-            property vector4d b2: Qt.vector4d(normSamples[8],  normSamples[9],  normSamples[10], normSamples[11])
-            property vector4d b3: Qt.vector4d(normSamples[12], normSamples[13], normSamples[14], normSamples[15])
-            property vector4d b4: Qt.vector4d(normSamples[16], normSamples[17], normSamples[18], normSamples[19])
-            property vector4d b5: Qt.vector4d(normSamples[20], normSamples[21], normSamples[22], normSamples[23])
-            property vector4d b6: Qt.vector4d(normSamples[24], normSamples[25], normSamples[26], normSamples[27])
-            property vector4d b7: Qt.vector4d(normSamples[28], normSamples[29], normSamples[30], normSamples[31])
-
-            fragmentShader: "karaoke-scope.frag.qsb"
-        }
 
         // ── Content ──
         Column {
