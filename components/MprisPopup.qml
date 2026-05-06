@@ -40,87 +40,6 @@ PanelWindow {
         sourceUrl: mprisPopup.player ? mprisPopup.player.trackArtUrl : ""
     }
 
-    // Lyrics: try lazyspotify socket first, fall back to lrcsnc
-    property var _lyricsHistory: []
-    property int _lyricsIdx: -1
-    property bool _socketAlive: false
-
-    // Primary: lazyspotify unix socket via socat
-    Process {
-        id: lyricsProc
-        command: ["socat", "-u", "UNIX-CONNECT:/tmp/lazyspotify-lyrics.sock", "STDOUT"]
-        running: true
-        onExited: (code, status) => {
-            mprisPopup._socketAlive = false;
-            // Retry socket in 5s in case lazyspotify starts later
-            socketRetry.start();
-        }
-        stdout: SplitParser {
-            onRead: data => {
-                mprisPopup._socketAlive = true;
-                try {
-                    var obj = JSON.parse(data);
-                    if (!obj.playing) {
-                        mprisPopup.lyricsPrev = "";
-                        mprisPopup.lyricsCurrent = "";
-                        mprisPopup.lyricsNext = "";
-                        return;
-                    }
-                    var line = obj.line_text || "";
-                    var idx = obj.line_index || 0;
-
-                    if (idx !== mprisPopup._lyricsIdx) {
-                        if (idx === 0) mprisPopup._lyricsHistory = [];
-                        while (mprisPopup._lyricsHistory.length <= idx) {
-                            mprisPopup._lyricsHistory.push("");
-                        }
-                        mprisPopup._lyricsHistory[idx] = line;
-                        mprisPopup._lyricsIdx = idx;
-
-                        mprisPopup.lyricsPrev = idx > 0 ? (mprisPopup._lyricsHistory[idx - 1] || "") : "";
-                        mprisPopup.lyricsCurrent = line;
-                        mprisPopup.lyricsNext = "";
-                    }
-                    if (mprisPopup._lyricsHistory.length > idx + 1) {
-                        mprisPopup.lyricsNext = mprisPopup._lyricsHistory[idx + 1] || "";
-                    }
-                } catch(e) {}
-            }
-        }
-    }
-
-    Timer {
-        id: socketRetry; interval: 5000; repeat: false
-        onTriggered: { if (!mprisPopup._socketAlive) lyricsProc.running = true; }
-    }
-
-    // Fallback: lrcsnc (only runs when socket is dead)
-    Process {
-        id: lrcsncProc
-        command: ["lrcsnc"]
-        running: !mprisPopup._socketAlive
-        onExited: (code, status) => {
-            if (!mprisPopup._socketAlive) lrcsncRetry.start();
-        }
-        stdout: SplitParser {
-            onRead: data => {
-                if (mprisPopup._socketAlive) return; // socket took over
-                try {
-                    var obj = JSON.parse(data);
-                    var text = obj.text || "";
-                    mprisPopup.lyricsPrev = "";
-                    mprisPopup.lyricsCurrent = text;
-                    mprisPopup.lyricsNext = "";
-                } catch(e) {}
-            }
-        }
-    }
-
-    Timer {
-        id: lrcsncRetry; interval: 5000; repeat: false
-        onTriggered: { if (!mprisPopup._socketAlive) lrcsncProc.running = true; }
-    }
-
     property real _elapsed: 0
     Timer {
         interval: 16; running: mprisPopup.visible; repeat: true
@@ -302,7 +221,7 @@ PanelWindow {
                         }}
                     }
 
-                    // Current line (highlighted + glow)
+                    // Current line
                     Text {
                         id: currentLyricText
                         text: mprisPopup.lyricsCurrent
@@ -310,22 +229,7 @@ PanelWindow {
                         font { pixelSize: 12; family: mprisPopup.fontFamily; bold: true }
                         elide: Text.ElideRight; width: parent.width
                         horizontalAlignment: Text.AlignHCenter
-
-                        // Glow layer
-                        Text {
-                            anchors.fill: parent
-                            text: parent.text; color: mprisPopup.primary; opacity: 0.3
-                            font: parent.font
-                            horizontalAlignment: Text.AlignHCenter
-                            layer.enabled: true
-                            layer.effect: ShaderEffect {
-                                fragmentShader: "lyrics-glow.frag.qsb"
-                            }
-                        }
-
-                        // Fade + scale pulse on line change
-                        scale: 1.0
-                        transformOrigin: Item.Center
+                        scale: 1.0; transformOrigin: Item.Center
                         Behavior on text { SequentialAnimation {
                             ParallelAnimation {
                                 NumberAnimation { target: currentLyricText; property: "opacity"; to: 0; duration: 80 }

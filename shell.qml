@@ -90,6 +90,7 @@ Scope {
     // Services
     // ══════════════════════════════════════
     Services.SysInfo { id: sys }
+    Services.LyricsProvider { id: lyrics }
 
     property bool clockShowDate: false
     property string clockTime: clockShowDate
@@ -224,7 +225,13 @@ Scope {
 
     C.MprisPopup { id: mprisPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
         secondary: root.secondary; player: root.activePlayer
-        mprisPos: root.mprisPos; mprisLen: root.mprisLen }
+        mprisPos: root.mprisPos; mprisLen: root.mprisLen
+        lyricsPrev: lyrics.prev; lyricsCurrent: lyrics.current; lyricsNext: lyrics.next }
+
+    C.KaraokeOverlay { id: karaokeOverlay; player: root.activePlayer
+        mprisPos: root.mprisPos; mprisLen: root.mprisLen
+        lyricsPrev2: lyrics.prev2; lyricsPrev: lyrics.prev; lyricsCurrent: lyrics.current
+        lyricsNext: lyrics.next; lyricsNext2: lyrics.next2 }
 
     // Wallpaper picker
     C.WallpaperPicker {
@@ -239,6 +246,14 @@ Scope {
         onFileChanged: {
             if (wallpaperPicker.showing) wallpaperPicker.showing = false;
             else wallpaperPicker.showing = true;
+        }
+    }
+
+    FileView {
+        path: "file:///tmp/qs-karaoke"
+        watchChanges: true
+        onFileChanged: {
+            karaokeOverlay.showing = !karaokeOverlay.showing;
         }
     }
 
