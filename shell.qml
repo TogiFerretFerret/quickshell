@@ -8,6 +8,7 @@ import Quickshell.Io
 import Quickshell.Services.Mpris
 import Quickshell.Services.SystemTray
 import Quickshell.Services.Pipewire
+import Quickshell.Services.Notifications
 import Quickshell.Widgets
 import Quickshell.Bluetooth
 import Quickshell.Networking
@@ -130,7 +131,8 @@ Scope {
     property bool idleInhibited: false
     property bool battShowTime: false
     property bool dndActive: false
-    property int notifCount: 0
+    property int notifCount: notifHistoryModel.count
+    property var notifHistoryModel: ListModel {}
 
     // MPRIS position tracking (position from D-Bus is microseconds and doesn't auto-notify)
     property real mprisPos: 0   // seconds
@@ -170,14 +172,44 @@ Scope {
     Process { id: openPavucontrol; command: ["pavucontrol"] }
     Process { id: blUp; command: ["brightnessctl", "s", "+5%"] }
     Process { id: blDown; command: ["brightnessctl", "s", "5%-"] }
-    Process { id: swayncToggle; command: ["swaync-client", "-t", "-sw"] }
-    Process { id: swayncDnd; command: ["swaync-client", "-d", "-sw"]
-        onRunningChanged: if (!running) root.dndActive = !root.dndActive }
-    // Subscribe to swaync status changes (long-running, fires on every state change)
-    Process { id: dndWatch; command: ["sh", "-c", "pkill -f 'swaync-client -swb' 2>/dev/null; exec swaync-client -swb"]; running: true
-        stdout: SplitParser { onRead: data => {
-            try { var j = JSON.parse(data); root.dndActive = (j.alt || "").indexOf("dnd") >= 0; root.notifCount = parseInt(j.text) || 0; } catch(e) {}
-        }}
+    // Notification server (replaces swaync entirely)
+    NotificationServer {
+        id: notifServer
+        keepOnReload: true
+        bodyMarkupSupported: true
+        actionsSupported: true
+        imageSupported: true
+        bodySupported: true
+
+        onNotification: notification => {
+            notification.tracked = true;
+            root.notifHistoryModel.insert(0, {
+                summary: notification.summary || "",
+                body: notification.body || "",
+                appName: notification.appName || "",
+                appIcon: notification.appIcon || "",
+                image: notification.image || "",
+                urgency: notification.urgency,
+                time: new Date(),
+                nid: notification.id,
+                notifObj: notification
+            });
+            if (!root.dndActive) {
+                notifToast.showNotification(notification);
+                notifSound.urgency = notification.urgency;
+                notifSound.running = true;
+            }
+        }
+    }
+
+    // osu! notification sounds
+    Process {
+        id: notifSound; property int urgency: 1
+        command: urgency === 2
+            ? ["pw-play", "--volume", "0.20", "/home/river/.osu/Skins/-.JesusOmega.NM.Planets.-/normal-hitnormal.wav"]
+            : urgency === 1
+            ? ["pw-play", "--volume", "0.10", "/home/river/.osu/Skins/-.JesusOmega.NM.Planets.-/normal-hitfinish.wav"]
+            : ["pw-play", "--volume", "0.05", "/home/river/.osu/Skins/-.JesusOmega.NM.Planets.-/normal-hitsoft.wav"]
     }
 
     // Audiophile Telemetry
@@ -190,7 +222,7 @@ Scope {
     function closePopups() { calendarPopup.showing = false; btPopup.showing = false;
         cpuPopup.showing = false; memPopup.showing = false; tempPopup.showing = false;
         blPopup.showing = false; wifiPopup.showing = false; mprisPopup.showing = false;
-        batPopup.showing = false; }
+        batPopup.showing = false; notifCenterPopup.showing = false; }
     function togglePopup(popup) { var was = popup.showing; closePopups(); popup.showing = !was; }
 
     // Popups
@@ -233,6 +265,36 @@ Scope {
         lyricsPrev2: lyrics.prev2; lyricsPrev: lyrics.prev; lyricsCurrent: lyrics.current
         lyricsNext: lyrics.next; lyricsNext2: lyrics.next2 }
 
+    // Notification toast + center (replaces swaync)
+    C.NotifToast {
+        id: notifToast
+        bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+        accent: root.accent; red: root.cRed
+    }
+
+    C.NotifCenter {
+        id: notifCenterPopup
+        bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+        accent: root.accent; red: root.cRed
+        notifHistory: root.notifHistoryModel
+        dndActive: root.dndActive
+        onDndToggled: root.dndActive = !root.dndActive
+        onClearAll: {
+            for (var i = root.notifHistoryModel.count - 1; i >= 0; i--) {
+                var n = root.notifHistoryModel.get(i).notifObj;
+                if (n) n.dismiss();
+            }
+            root.notifHistoryModel.clear();
+        }
+        onDismissOne: idx => {
+            if (idx >= 0 && idx < root.notifHistoryModel.count) {
+                var n = root.notifHistoryModel.get(idx).notifObj;
+                if (n) n.dismiss();
+                root.notifHistoryModel.remove(idx);
+            }
+        }
+    }
+
     // Wallpaper picker
     C.WallpaperPicker {
         id: wallpaperPicker
@@ -254,6 +316,27 @@ Scope {
         watchChanges: true
         onFileChanged: {
             karaokeOverlay.showing = !karaokeOverlay.showing;
+        }
+    }
+
+    // Notification IPC (keybind triggers)
+    FileView {
+        path: "file:///tmp/qs-notif-dnd"; watchChanges: true
+        onFileChanged: root.dndActive = !root.dndActive
+    }
+    FileView {
+        path: "file:///tmp/qs-notif-dismiss"; watchChanges: true
+        onFileChanged: { if (notifToast.toastModel.count > 0) notifToast.dismissToast(0); }
+    }
+    FileView {
+        path: "file:///tmp/qs-notif-clear"; watchChanges: true
+        onFileChanged: {
+            notifToast.toastModel.clear();
+            for (var i = root.notifHistoryModel.count - 1; i >= 0; i--) {
+                var n = root.notifHistoryModel.get(i).notifObj;
+                if (n) n.dismiss();
+            }
+            root.notifHistoryModel.clear();
         }
     }
 
@@ -637,8 +720,8 @@ Scope {
                     pillHeight: root.pillH; pillRadius: root.pillR; pillPadding: 20
                     fontFamily: root.ff; fontSize: root.fs; minWidth: root.pillH
                     onClicked: mouse => {
-                        if (mouse.button === Qt.LeftButton) swayncToggle.running = true;
-                        else swayncDnd.running = true; }
+                        if (mouse.button === Qt.LeftButton) root.togglePopup(notifCenterPopup);
+                        else root.dndActive = !root.dndActive; }
                     onTooltipShow: (gx, t) => { root.ttText = t; root.ttX = gx; root.ttVisible = true; }
                     onTooltipHide: root.ttVisible = false
                 }
