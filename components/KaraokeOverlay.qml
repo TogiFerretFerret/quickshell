@@ -41,31 +41,46 @@ PanelWindow {
     }
 
     // ── Dominant color from album art ──
-    property color artColor: karaoke.primary
-    property string _lastArtUrl: ""
-
-    onVisibleChanged: {
-        if (visible && artProc.roundedPath !== "") artColorProc.running = true;
-    }
+    property color artColor: "#a3c9ff"
+    property color artColor2: "#c084fc"
+    property color artColor3: "#f0abfc"
 
     Process {
         id: artColorProc
+        property string artUrl: karaoke.player ? (karaoke.player.trackArtUrl || "") : ""
         command: ["sh", "-c",
-            "convert '" + artProc.roundedPath + "' -resize 1x1! -format '%[hex:u.p{0,0}]' info: 2>/dev/null"]
+            "curl -sL '" + artUrl + "' -o /tmp/qs-art/original.png 2>/dev/null && " +
+            "matugen image --json hex --prefer saturation /tmp/qs-art/original.png 2>/dev/null | " +
+            "python3 -c \"import json,sys; d=json.load(sys.stdin)['colors'];" +
+            "print(d['primary']['dark']['color']);" +
+            "print(d['secondary']['dark']['color']);" +
+            "print(d['tertiary']['dark']['color'])\""]
         stdout: SplitParser {
+            property int lineNum: 0
             onRead: data => {
-                var hex = data.trim().replace(/^FF/, "").slice(0, 6);
-                if (hex.length === 6) karaoke.artColor = "#" + hex;
+                var hex = data.trim();
+                if (hex.length >= 6) {
+                    if (hex[0] !== '#') hex = '#' + hex;
+                    if (lineNum === 0) karaoke.artColor = hex;
+                    else if (lineNum === 1) karaoke.artColor2 = hex;
+                    else if (lineNum === 2) karaoke.artColor3 = hex;
+                    lineNum++;
+                }
             }
         }
+        onRunningChanged: { if (running) stdout.lineNum = 0; }
     }
 
     Connections {
-        target: artProc
-        function onRoundedPathChanged() {
-            if (artProc.roundedPath !== "" && karaoke.visible)
+        target: artColorProc
+        function onArtUrlChanged() {
+            if (artColorProc.artUrl !== "" && karaoke.visible)
                 artColorProc.running = true;
         }
+    }
+
+    onVisibleChanged: {
+        if (visible && artColorProc.artUrl !== "") artColorProc.running = true;
     }
 
     // ── Cava audio data ──
@@ -143,6 +158,72 @@ PanelWindow {
             fragmentShader: "karaoke-artbg.frag.qsb"
         }
 
+        // ── Cava waveform ──
+        Canvas {
+            id: cavaCanvas
+            anchors.left: parent.left; anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 150
+
+            property var samps: normSamples
+            onSampsChanged: requestPaint()
+
+            onPaint: {
+                var ctx = getContext("2d");
+                var w = width, h = height;
+                ctx.clearRect(0, 0, w, h);
+
+                var s = samps;
+                if (!s || s.length < 2) return;
+                var n = Math.min(s.length, 32);
+
+                ctx.beginPath();
+                ctx.moveTo(0, h);
+
+                // Smooth curve through sample tops
+                for (var i = 0; i < n; i++) {
+                    var x = (i + 0.5) * w / n;
+                    var y = h - s[i] * h;
+                    if (i === 0) {
+                        ctx.lineTo(x, y);
+                    } else {
+                        var px = (i - 0.5) * w / n;
+                        var py = h - s[i - 1] * h;
+                        var cpx = (px + x) / 2;
+                        ctx.bezierCurveTo(cpx, py, cpx, y, x, y);
+                    }
+                }
+
+                ctx.lineTo(w, h);
+                ctx.closePath();
+
+                var col = karaoke.artColor;
+                ctx.fillStyle = Qt.rgba(col.r, col.g, col.b, 0.4);
+                ctx.fill();
+
+                // Outer bloom
+                for (var pass = 0; pass < 3; pass++) {
+                    var gw = [12, 6, 2][pass];
+                    var ga = [0.06, 0.15, 0.8][pass];
+                    ctx.beginPath();
+                    for (var i = 0; i < n; i++) {
+                        var x = (i + 0.5) * w / n;
+                        var y = h - s[i] * h;
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            var px = (i - 0.5) * w / n;
+                            var py = h - s[i - 1] * h;
+                            var cpx = (px + x) / 2;
+                            ctx.bezierCurveTo(cpx, py, cpx, y, x, y);
+                        }
+                    }
+                    ctx.strokeStyle = Qt.rgba(col.r, col.g, col.b, ga);
+                    ctx.lineWidth = gw;
+                    ctx.stroke();
+                }
+            }
+        }
 
         // ── Content ──
         Column {
@@ -162,7 +243,7 @@ PanelWindow {
                     Rectangle {
                         anchors.centerIn: parent
                         width: 230; height: 230; radius: 24
-                        color: karaoke.primary; opacity: 0.08
+                        color: karaoke.artColor; opacity: 0.08
                     }
 
                     Rectangle {
@@ -188,7 +269,7 @@ PanelWindow {
                             anchors.fill: parent; radius: 20
                             color: "transparent"
                             border.width: 2
-                            border.color: Qt.rgba(karaoke.primary.r, karaoke.primary.g, karaoke.primary.b, 0.15)
+                            border.color: Qt.rgba(karaoke.artColor.r, karaoke.artColor.g, karaoke.artColor.b, 0.15)
                             rotation: karaoke._elapsed * 20
                             Behavior on rotation { NumberAnimation { duration: 0 } }
                             visible: karaoke.player && karaoke.player.playbackState === MprisPlaybackState.Playing
@@ -209,7 +290,7 @@ PanelWindow {
                     }
                     Text {
                         text: karaoke.player ? (karaoke.player.trackArtist || "") : ""
-                        color: karaoke.primary
+                        color: karaoke.artColor
                         font { pixelSize: 22; family: karaoke.fontFamily }
                         elide: Text.ElideRight; width: parent.width
                     }
@@ -235,8 +316,9 @@ PanelWindow {
                             height: parent.height; radius: 4
                             gradient: Gradient {
                                 orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: karaoke.primary }
-                                GradientStop { position: 1.0; color: karaoke.accent2 }
+                                GradientStop { position: 0.0; color: karaoke.artColor }
+                                GradientStop { position: 0.5; color: karaoke.artColor2 }
+                                GradientStop { position: 1.0; color: karaoke.artColor3 }
                             }
                             Behavior on width { NumberAnimation { duration: 1000; easing.type: Easing.Linear } }
                         }
@@ -244,7 +326,7 @@ PanelWindow {
                         Rectangle {
                             x: (karaoke.mprisLen > 0 ? parent.width * (karaoke.mprisPos / karaoke.mprisLen) : 0) - 6
                             y: -4; width: 16; height: 16; radius: 8
-                            color: karaoke.primary; opacity: 0.3
+                            color: karaoke.artColor; opacity: 0.3
                             Behavior on x { NumberAnimation { duration: 1000; easing.type: Easing.Linear } }
                         }
                         MouseArea {
@@ -289,7 +371,7 @@ PanelWindow {
                                         }
                                         return String.fromCodePoint(parent.modelData.icon);
                                     }
-                                    color: parent.modelData.action === "togglePlaying" ? karaoke.primary : karaoke.fg
+                                    color: parent.modelData.action === "togglePlaying" ? karaoke.artColor : karaoke.fg
                                     font { pixelSize: 20; family: karaoke.fontFamily }
                                 }
                                 MouseArea { id: ctrlMA; anchors.fill: parent; hoverEnabled: true
@@ -356,7 +438,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         width: Math.min(currentLine.contentWidth, currentLine.width) + 50
                         height: currentLine.height + 16
-                        radius: 14; color: karaoke.primary; opacity: 0.05
+                        radius: 14; color: karaoke.artColor; opacity: 0.05
                         Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
                     }
 
@@ -364,7 +446,7 @@ PanelWindow {
                         id: currentLine
                         anchors.centerIn: parent
                         text: karaoke.lyricsCurrent || "♪"
-                        color: karaoke.lyricsCurrent ? karaoke.primary : karaoke.dim
+                        color: karaoke.lyricsCurrent ? karaoke.artColor : karaoke.dim
                         font { pixelSize: 34; family: karaoke.fontFamily; bold: true }
                         width: parent.width; horizontalAlignment: Text.AlignHCenter
                         elide: Text.ElideRight

@@ -20,7 +20,7 @@ void main() {
     vec2 center = vec2(0.5, 0.5);
 
     // Bass zoom — image breathes with the low end
-    float zoom = 1.0 + bass * 0.05 * isPlaying;
+    float zoom = 1.15 + bass * 0.05 * isPlaying;
     vec2 warped = (uv - center) / zoom + center;
 
     // Slow rotation that speeds up on kicks
