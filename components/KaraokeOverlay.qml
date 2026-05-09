@@ -112,7 +112,7 @@ PanelWindow {
         for (var i = 0; i < 32; i++) {
             if (i < len) {
                 var raw = s[i] / norm;
-                out.push(Math.min(Math.pow(raw, 1.6), 1.0));
+                out.push(Math.min(Math.pow(raw, 1.6), 0.85));
             } else {
                 out.push(0.0);
             }

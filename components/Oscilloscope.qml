@@ -51,7 +51,7 @@ Rectangle {
         for (var i = 0; i < 32; i++) {
             if (i < len) {
                 var raw = s[i] / norm;
-                out.push(Math.min(Math.pow(raw, 1.8), 1.0));
+                out.push(Math.min(Math.pow(raw, 1.8), 0.85));
             } else {
                 out.push(0.0);
             }

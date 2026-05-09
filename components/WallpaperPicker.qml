@@ -41,6 +41,7 @@ PanelWindow {
                 var slashIdx = name.indexOf("/");
                 if (slashIdx !== -1) {
                     var folder = name.substring(0, slashIdx);
+                    if (folder === "Online") continue;
                     if (!folders[folder]) folders[folder] = 0;
                     folders[folder]++;
                 } else {
