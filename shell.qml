@@ -222,8 +222,15 @@ Scope {
     function closePopups() { calendarPopup.showing = false; btPopup.showing = false;
         cpuPopup.showing = false; memPopup.showing = false; tempPopup.showing = false;
         blPopup.showing = false; wifiPopup.showing = false; mprisPopup.showing = false;
-        batPopup.showing = false; notifCenterPopup.showing = false; }
+        batPopup.showing = false; notifCenterPopup.showing = false; clipboardPopup.showing = false; }
     function togglePopup(popup) { var was = popup.showing; closePopups(); popup.showing = !was; }
+
+    // Global shortcuts
+    GlobalShortcut {
+        name: "clipboard"
+        description: "Toggle clipboard popup"
+        onPressed: root.togglePopup(clipboardPopup)
+    }
 
     // Popups
     C.Dashboard {
@@ -259,6 +266,11 @@ Scope {
         secondary: root.secondary; player: root.activePlayer
         mprisPos: root.mprisPos; mprisLen: root.mprisLen
         lyricsPrev: lyrics.prev; lyricsCurrent: lyrics.current; lyricsNext: lyrics.next }
+
+    C.ClipboardPopup {
+        id: clipboardPopup
+        bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+    }
 
     C.KaraokeOverlay { id: karaokeOverlay; player: root.activePlayer
         mprisPos: root.mprisPos; mprisLen: root.mprisLen
@@ -302,35 +314,34 @@ Scope {
         green: root.cGreen; yellow: root.cYellow
     }
 
-    FileView {
-        path: "file:///tmp/qs-wallpaper-picker"
-        watchChanges: true
-        onFileChanged: {
-            if (wallpaperPicker.showing) wallpaperPicker.showing = false;
-            else wallpaperPicker.showing = true;
-        }
+    // Global shortcuts (replacing temp file IPC)
+    GlobalShortcut {
+        name: "wallpaper"
+        description: "Toggle wallpaper picker"
+        onPressed: { wallpaperPicker.showing = !wallpaperPicker.showing; }
     }
 
-    FileView {
-        path: "file:///tmp/qs-karaoke"
-        watchChanges: true
-        onFileChanged: {
-            karaokeOverlay.showing = !karaokeOverlay.showing;
-        }
+    GlobalShortcut {
+        name: "karaoke"
+        description: "Toggle karaoke overlay"
+        onPressed: { karaokeOverlay.showing = !karaokeOverlay.showing; }
     }
 
-    // Notification IPC (keybind triggers)
-    FileView {
-        path: "file:///tmp/qs-notif-dnd"; watchChanges: true
-        onFileChanged: root.dndActive = !root.dndActive
+    GlobalShortcut {
+        name: "notif-dnd"
+        description: "Toggle do not disturb"
+        onPressed: { root.dndActive = !root.dndActive; }
     }
-    FileView {
-        path: "file:///tmp/qs-notif-dismiss"; watchChanges: true
-        onFileChanged: { if (notifToast.toastModel.count > 0) notifToast.dismissToast(0); }
+    GlobalShortcut {
+        name: "notif-dismiss"
+        description: "Dismiss top notification"
+        onPressed: { if (notifToast.toastModel.count > 0) notifToast.dismissToast(0); }
     }
-    FileView {
-        path: "file:///tmp/qs-notif-clear"; watchChanges: true
-        onFileChanged: {
+
+    GlobalShortcut {
+        name: "notif-clear"
+        description: "Clear all notifications"
+        onPressed: {
             notifToast.toastModel.clear();
             for (var i = root.notifHistoryModel.count - 1; i >= 0; i--) {
                 var n = root.notifHistoryModel.get(i).notifObj;

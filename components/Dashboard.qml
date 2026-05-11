@@ -296,8 +296,8 @@ PanelWindow {
                             MouseArea {
                                 id: dayCardMA; anchors.fill: parent; hoverEnabled: true
                                 onClicked: {
-                                    if (dash.selectedDay === parent.index) {
-                                        dash.selectedDay = -1; // back to current
+                                    if (dash.selectedDay === parent.index || parent.modelData.day === "Today") {
+                                        dash.selectedDay = -1; // back to current real-time weather
                                     } else {
                                         dash.selectedDay = parent.index;
                                     }
