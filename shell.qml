@@ -532,8 +532,10 @@ Scope {
                                     color: parent.active ? root.bg : root.dim
                                     font { pixelSize: root.fs; bold: parent.active; family: root.ff }
                                     Behavior on color { ColorAnimation { duration: 200 } } }
+                                Process { id: wsProc; property int ws: parent.wsId
+                                    command: ["sh", "-c", "hyprctl eval 'hl.dsp.focus({ workspace = " + ws + " })'"] }
                                 MouseArea { id: wsH; anchors.fill: parent; hoverEnabled: true
-                                    onClicked: Hyprland.dispatch("workspace " + parent.wsId) }
+                                    onClicked: wsProc.running = true }
                             }
                         }
                     }
