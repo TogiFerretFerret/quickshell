@@ -21,3 +21,9 @@ oooh i still need to make this longer for it to count toward free hackclub point
 
 backup is in case you want the old less laggy dots
 sometimes they are more laggy but im pretty sure at least it doesn't have a crazy over the top dashboard with unncessary shaders not even i asked for but still enjoy. 
+
+oh and when i say i still enjoy YOU WILL ENJOY IT TOO. 
+OR ELSE!! i'll be... very mad... or something... idk im not your dad do what u want make ur own dots i dont control you
+
+
+or do i? are these MIND CONTROL DOTS (no they aren't, i'd have to be less dumb for that)
