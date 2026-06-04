@@ -189,17 +189,17 @@ void main() {
         float r = rain(uv, t * 0.8);
         col += vec3(0.2, 0.25, 0.4) * r * 0.6;
 
-        // Lightning bolt — aperiodic
-        // Guaranteed bolt every 1.5-2.2s (varied interval per bolt)
+        // Lightning bolt — aperiodic, wraps every 80s so it never stops
+        float tBolt = mod(iTime, 80.0);
         float boltId = 0.0;
         float accum = 0.0;
         for (float i = 0.0; i < 40.0; i++) {
             float interval = 1.5 + hash1(i * 7.7) * 0.7;
-            if (accum + interval > iTime) break;
+            if (accum + interval > tBolt) break;
             accum += interval;
             boltId = i;
         }
-        float boltPhase = (iTime - accum) / (1.5 + hash1(boltId * 7.7) * 0.7);
+        float boltPhase = (tBolt - accum) / (1.5 + hash1(boltId * 7.7) * 0.7);
         float shouldBolt = 1.0;
 
         if (shouldBolt > 0.5) {

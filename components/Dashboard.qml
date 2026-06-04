@@ -96,7 +96,7 @@ PanelWindow {
         if (d.indexOf("sun") >= 0 || d.indexOf("clear") >= 0) return String.fromCodePoint(0xf0599);
         if (d.indexOf("rain") >= 0 || d.indexOf("drizzle") >= 0 || d.indexOf("shower") >= 0) return String.fromCodePoint(0xf0597);
         if (d.indexOf("snow") >= 0) return String.fromCodePoint(0xf0598);
-        if (d.indexOf("thunder") >= 0) return String.fromCodePoint(0xf0593);
+        if (d.toLowerCase().indexOf("thunder") >= 0) return String.fromCodePoint(0xf0593);
         if (d.indexOf("fog") >= 0 || d.indexOf("mist") >= 0) return String.fromCodePoint(0xf0591);
         return String.fromCodePoint(0xf0590);
     }
@@ -106,7 +106,7 @@ PanelWindow {
         if (d.indexOf("sun") >= 0 || d.indexOf("clear") >= 0) return 0.0;
         if (d.indexOf("rain") >= 0 || d.indexOf("drizzle") >= 0 || d.indexOf("shower") >= 0) return 2.0;
         if (d.indexOf("snow") >= 0) return 3.0;
-        if (d.indexOf("thunder") >= 0) return 4.0;
+        if (d.toLowerCase().indexOf("thunder") >= 0) return 4.0;
         return 1.0;
     }
 
