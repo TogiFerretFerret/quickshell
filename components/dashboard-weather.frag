@@ -43,22 +43,27 @@ float fbm(vec2 p) {
     return v;
 }
 
-// Rain — layered streaks with varied angle/speed/length
+// Rain — layered streaks with parallax depth
+// near (i=0): few fat fast bright drops   far (i=5): many thin slow dim drops
 float rain(vec2 uv, float t) {
     float drops = 0.0;
     for (float i = 0.0; i < 6.0; i++) {
-        float scale = 4.0 + i * 2.8;
-        float speed = 2.2 + i * 1.0 + hash1(i) * 0.6;
-        float angle = -0.12 - i * 0.04;
+        float near  = 1.0 - i / 5.0;           // 1=nearest, 0=farthest
+        float scale = 4.0 + i * 2.8;           // more columns = smaller drops
+        // apparent screen speed = speed / (scale * 0.3)
+        // fix: near layers get high raw speed so apparent speed is much faster
+        float speed = (18.0 - i * 2.5) + hash1(i) * 1.5;
+        float angle = -0.12 - i * 0.03;
         vec2 st = uv * vec2(scale, scale * 0.3);
         st.x += st.y * angle;
         st.y -= t * speed;
         float col_id = floor(st.x);
         st.y += hash1(col_id + i * 17.0) * 10.0;
         vec2 g = fract(st) - 0.5;
-        float stretch = 4.5 + i * 1.5;
-        float d = length(g * vec2(1.8, stretch));
-        float intensity = 0.16 - i * 0.018;
+        float stretch   = 4.5 + i * 1.5;
+        float thickness = 1.2 + near * 0.8;    // near drops slightly fatter
+        float d = length(g * vec2(thickness, stretch));
+        float intensity = 0.06 + near * 0.14;  // near=0.20, far=0.06
         drops += smoothstep(0.2, 0.0, d) * intensity;
     }
     return drops;
@@ -179,15 +184,18 @@ void main() {
         alpha = 0.25;
 
     } else {
-        // ── THUNDER: dark clouds + rain + lightning bolts ──
-        // Ominous cloud base
-        float clouds = fbm(uv * 3.0 + vec2(t * 0.3, t * 0.08));
-        float clouds2 = fbm(uv * 5.0 + vec2(-t * 0.2, t * 0.15));
-        col = vec3(0.02, 0.02, 0.05) + vec3(0.04, 0.04, 0.08) * clouds;
+        // ── THUNDER: rain base + ominous clouds + lightning bolts ──
+        // Full rain base (same as rain branch)
+        float r = rain(uv, t);
+        float clouds = fbm(uv * 2.0 + vec2(t * 0.2, t * 0.05));
+        col = vec3(0.01, 0.02, 0.04) + ac * 0.04;
+        col += vec3(0.02, 0.03, 0.06) * clouds;
+        col += vec3(0.35, 0.45, 0.65) * r;
 
-        // Dimmer rain
-        float r = rain(uv, t * 0.8);
-        col += vec3(0.2, 0.25, 0.4) * r * 0.6;
+        // Extra ominous dark cloud layer on top
+        float clouds2 = fbm(uv * 5.0 + vec2(-t * 0.2, t * 0.15));
+        col = mix(col, vec3(0.01, 0.01, 0.03), 0.4);
+        col += vec3(0.02, 0.02, 0.05) * clouds2;
 
         // Lightning bolt — aperiodic, wraps every 80s so it never stops
         float tBolt = mod(iTime, 80.0);

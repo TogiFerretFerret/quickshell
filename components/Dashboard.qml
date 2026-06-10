@@ -94,9 +94,9 @@ PanelWindow {
     function weatherIconFor(desc) {
         var d = (desc || "").toLowerCase();
         if (d.indexOf("sun") >= 0 || d.indexOf("clear") >= 0) return String.fromCodePoint(0xf0599);
+        if (d.indexOf("thunder") >= 0) return String.fromCodePoint(0xf0593);
         if (d.indexOf("rain") >= 0 || d.indexOf("drizzle") >= 0 || d.indexOf("shower") >= 0) return String.fromCodePoint(0xf0597);
         if (d.indexOf("snow") >= 0) return String.fromCodePoint(0xf0598);
-        if (d.toLowerCase().indexOf("thunder") >= 0) return String.fromCodePoint(0xf0593);
         if (d.indexOf("fog") >= 0 || d.indexOf("mist") >= 0) return String.fromCodePoint(0xf0591);
         return String.fromCodePoint(0xf0590);
     }
@@ -104,9 +104,9 @@ PanelWindow {
     function weatherCodeFor(desc) {
         var d = (desc || "").toLowerCase();
         if (d.indexOf("sun") >= 0 || d.indexOf("clear") >= 0) return 0.0;
+        if (d.indexOf("thunder") >= 0) return 4.0;
         if (d.indexOf("rain") >= 0 || d.indexOf("drizzle") >= 0 || d.indexOf("shower") >= 0) return 2.0;
         if (d.indexOf("snow") >= 0) return 3.0;
-        if (d.toLowerCase().indexOf("thunder") >= 0) return 4.0;
         return 1.0;
     }
 
@@ -243,10 +243,12 @@ PanelWindow {
                         }
                         Column {
                             spacing: 2; anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - 48 - 16  // parent minus icon width minus spacing
                             Text { text: dash.weatherTemp + "°F"; color: dash.fg
                                 font { pixelSize: 32; family: dash.fontFamily; bold: true } }
                             Text { text: dash.weatherDesc; color: dash.fg
-                                font { pixelSize: 13; family: dash.fontFamily } }
+                                font { pixelSize: 13; family: dash.fontFamily }
+                                wrapMode: Text.WordWrap; width: parent.width }
                             Text { text: "Feels " + dash.weatherFeels + "°F"; color: dash.dim
                                 font { pixelSize: 10; family: dash.fontFamily } }
                             Row {
