@@ -11,7 +11,6 @@ import Quickshell.Services.Pipewire
 import Quickshell.Services.Notifications
 import Quickshell.Widgets
 import Quickshell.Bluetooth
-import Quickshell.Networking
 import QtQuick
 import QtQuick.Layouts
 import "services" as Services
@@ -221,7 +220,7 @@ Scope {
     // Popup management
     function closePopups() { calendarPopup.showing = false; btPopup.showing = false;
         cpuPopup.showing = false; memPopup.showing = false; tempPopup.showing = false;
-        blPopup.showing = false; wifiPopup.showing = false; mprisPopup.showing = false;
+        blPopup.showing = false; mprisPopup.showing = false;
         batPopup.showing = false; notifCenterPopup.showing = false; clipboardPopup.showing = false; }
     function togglePopup(popup) { var was = popup.showing; closePopups(); popup.showing = !was; }
 
@@ -259,8 +258,6 @@ Scope {
     C.BrightnessPopup { id: blPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
         yellow: root.cYellow; brightness: sys.brightness }
 
-    C.WifiPopup { id: wifiPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
-        green: root.cGreen }
 
     C.MprisPopup { id: mprisPopup; bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
         secondary: root.secondary; player: root.activePlayer
@@ -688,25 +685,6 @@ Scope {
                             }
                         }
 
-                        // WiFi icon
-                        MouseArea {
-                            property var wifiDev: {
-                                var devs = Networking.devices ? Networking.devices.values : [];
-                                for (var i = 0; i < devs.length; i++)
-                                    if (devs[i].type === DeviceType.Wifi) return devs[i];
-                                return null; }
-                            property bool connected: {
-                                if (!wifiDev || !wifiDev.networks) return false;
-                                var nets = wifiDev.networks.values;
-                                for (var i = 0; i < nets.length; i++) if (nets[i].connected) return true;
-                                return false; }
-                            width: 22; height: 22
-                            onClicked: root.togglePopup(wifiPopup)
-                            Text { anchors.centerIn: parent
-                                text: Networking.wifiEnabled ? String.fromCodePoint(0xf05a9) : String.fromCodePoint(0xf05aa)
-                                color: root.dim
-                                font { pixelSize: 16; family: root.ff } }
-                        }
 
                         // Bluetooth icon
                         MouseArea {
