@@ -11,6 +11,7 @@ import Quickshell.Services.Pipewire
 import Quickshell.Services.Notifications
 import Quickshell.Widgets
 import Quickshell.Bluetooth
+import Quickshell.Networking
 import QtQuick
 import QtQuick.Layouts
 import "services" as Services
@@ -221,8 +222,23 @@ Scope {
     function closePopups() { calendarPopup.showing = false; btPopup.showing = false;
         cpuPopup.showing = false; memPopup.showing = false; tempPopup.showing = false;
         blPopup.showing = false; mprisPopup.showing = false;
-        batPopup.showing = false; notifCenterPopup.showing = false; clipboardPopup.showing = false; }
+        batPopup.showing = false; notifCenterPopup.showing = false; clipboardPopup.showing = false;
+        vpnPopup.showing = false; wifiPopup.showing = false; }
     function togglePopup(popup) { var was = popup.showing; closePopups(); popup.showing = !was; }
+
+    C.VpnPopup {
+        id: vpnPopup
+        bg: root.bg; fg: root.fg; dim: root.dim; primary: root.primary
+        green: root.cGreen; red: root.cRed
+    }
+
+    C.WifiPopup { id: wifiPopup }
+
+    GlobalShortcut {
+        name: "vpn"
+        description: "Toggle NordVPN picker"
+        onPressed: root.togglePopup(vpnPopup)
+    }
 
     // Global shortcuts
     GlobalShortcut {
@@ -685,6 +701,16 @@ Scope {
                             }
                         }
 
+
+                        // WiFi icon
+                        MouseArea {
+                            width: 22; height: 22
+                            onClicked: root.togglePopup(wifiPopup)
+                            Text { anchors.centerIn: parent
+                                text: String.fromCodePoint(0xf05a9)
+                                color: Networking.wifiEnabled ? root.fg : root.dim
+                                font { pixelSize: 16; family: root.ff } }
+                        }
 
                         // Bluetooth icon
                         MouseArea {
