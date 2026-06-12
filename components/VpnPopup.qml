@@ -107,7 +107,7 @@ PanelWindow {
         command: ["/home/river/.local/bin/nordvpn-connect", pendingHost, pendingName]
         stdout: StdioCollector {
             onTextChanged: {
-                var lines = text.trimEnd().split("\n");
+                var lines = text.trim().split("\n");
                 var last = lines[lines.length - 1];
                 if      (last === "cleaning")    vpnPopup.connectStatus = "cleaning up...";
                 else if (last === "downloading") vpnPopup.connectStatus = "downloading...";
