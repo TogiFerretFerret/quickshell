@@ -306,7 +306,7 @@ PanelWindow {
                             Rectangle {
                                 required property var modelData
                                 height: 34
-                                width: (parent.parent.width - 12) / 3
+                                width: (parent.parent.width - 18) / 4
                                 radius: 10
                                 property bool isActive: vpnPopup.activeVpn === "(" + modelData.label + ")"
                                 color: isActive
