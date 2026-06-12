@@ -112,7 +112,9 @@ PanelWindow {
             onTextChanged: {
                 var lines = text.trim().split("\n");
                 var last = lines[lines.length - 1];
-                if (last === "connecting") {
+                if (last === "switching to openvpn") {
+                    vpnPopup.connectStatus = "switching to openvpn...";
+                } else if (last === "connecting") {
                     vpnPopup.connectStatus = "connecting...";
                 } else if (last === "done") {
                     vpnPopup.connectStatus = "";
