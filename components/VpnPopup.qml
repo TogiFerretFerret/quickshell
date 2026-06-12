@@ -130,8 +130,7 @@ PanelWindow {
     // ── Disconnect ────────────────────────────────────────────────────────────
     Process {
         id: disconnectProc
-        command: ["bash", "-c",
-            "nmcli -t -f NAME,TYPE connection show | awk -F: 'NF>=2 && $2==\"vpn\" && $1~/^Nord / {print $1}' | while IFS= read -r n; do nmcli connection down \"$n\" 2>/dev/null; nmcli connection delete \"$n\" 2>/dev/null; done"]
+        command: ["/home/river/.local/bin/nordvpn-disconnect"]
         onRunningChanged: if (!running) pollActive.running = true
     }
 

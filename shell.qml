@@ -702,14 +702,17 @@ Scope {
                         }
 
 
-                        // WiFi icon
+                        // WiFi icon — lock reflects VPN state
                         MouseArea {
                             width: 22; height: 22
                             onClicked: root.togglePopup(wifiPopup)
                             Text { anchors.centerIn: parent
-                                text: String.fromCodePoint(0xf05a9)
-                                color: Networking.wifiEnabled ? root.fg : root.dim
-                                font { pixelSize: 16; family: root.ff } }
+                                text: vpnPopup.activeVpn !== ""
+                                    ? String.fromCodePoint(0xf023)   // lock — VPN on
+                                    : String.fromCodePoint(0xf05a9)  // wifi — no VPN
+                                color: vpnPopup.activeVpn !== "" ? root.cGreen : root.fg
+                                font { pixelSize: 16; family: root.ff }
+                            }
                         }
 
                         // Bluetooth icon
