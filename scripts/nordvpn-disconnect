@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 nordvpn disconnect >/dev/null 2>&1
+nordvpn set obfuscate off >/dev/null 2>&1
 nordvpn set technology nordlynx >/dev/null 2>&1
 echo "done"

@@ -6,18 +6,19 @@ GROUP="${2:-}"
 if [ "$GROUP" = "Obfuscated_Servers" ]; then
     echo "switching to openvpn"
     nordvpn set technology openvpn >/dev/null 2>&1
+    nordvpn set obfuscate on >/dev/null 2>&1
 fi
 
 echo "connecting"
 ARGS=()
-if [ -n "$GROUP" ];    then ARGS+=(-g "$GROUP"); fi
-if [ -n "$HOSTNAME" ]; then SERVER="${HOSTNAME%.nordvpn.com}"; ARGS+=("$SERVER"); fi
+if [ -n "$HOSTNAME" ]; then SERVER="${HOSTNAME%.nordvpn.com}"; ARGS+=("$SERVER")
+elif [ -n "$GROUP" ] && [ "$GROUP" != "Obfuscated_Servers" ]; then ARGS+=(-g "$GROUP"); fi
 
 if nordvpn connect "${ARGS[@]}" >/dev/null 2>&1; then
     echo "done"
 else
-    # if obfuscated failed, switch back
     if [ "$GROUP" = "Obfuscated_Servers" ]; then
+        nordvpn set obfuscate off >/dev/null 2>&1
         nordvpn set technology nordlynx >/dev/null 2>&1
     fi
     echo "error:connect failed"
