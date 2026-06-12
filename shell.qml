@@ -639,7 +639,7 @@ Scope {
                         // CJK chars count as 2 toward limit; limit scales with workspace count
                         var wsCount = 0; var wsv = Hyprland.workspaces.values;
                         if (wsv) for (var w = 0; w < wsv.length; w++) if (wsv[w].id >= 1 && wsv[w].id <= 10) wsCount++;
-                        var limit = wsCount <= 6 ? 23 : wsCount === 7 ? 19 : wsCount === 8 ? 16 : wsCount === 9 ? 13 : 11; var count = 0; var cut = info.length;
+                        var limit = wsCount <= 6 ? 20 : wsCount === 7 ? 16 : wsCount === 8 ? 13 : wsCount === 9 ? 10 : 8; var count = 0; var cut = info.length;
                         for (var i = 0; i < info.length; i++) {
                             count += info.charCodeAt(i) > 0x2E80 ? 2 : 1;
                             if (count > limit) { cut = i; break; }
