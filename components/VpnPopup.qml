@@ -107,7 +107,7 @@ PanelWindow {
         id: connectProc
         property string pendingHost: ""
         property string pendingGroup: ""
-        command: ["/home/river/.local/bin/nordvpn-connect", pendingHost, pendingGroup]
+        command: ["/home/river/.config/quickshell/scripts/nordvpn-connect", pendingHost, pendingGroup]
         stdout: StdioCollector {
             onTextChanged: {
                 var lines = text.trim().split("\n");
@@ -130,7 +130,7 @@ PanelWindow {
     // ── Disconnect ────────────────────────────────────────────────────────────
     Process {
         id: disconnectProc
-        command: ["/home/river/.local/bin/nordvpn-disconnect"]
+        command: ["/home/river/.config/quickshell/scripts/nordvpn-disconnect"]
         onRunningChanged: if (!running) pollActive.running = true
     }
 
@@ -294,10 +294,10 @@ PanelWindow {
                         width: parent.width; spacing: 6
 
                         property var specialties: [
-                            { group: "p2p",             label: "P2P",            icon: "" },
-                            { group: "double_vpn",      label: "Double VPN",     icon: "" },
-                            { group: "onion_over_vpn",  label: "Onion Over VPN", icon: "" },
-                            { group: "obfuscated",      label: "Obfuscated",     icon: "󰛡" }
+                            { group: "P2P",               label: "P2P",            icon: "" },
+                            { group: "Double_VPN",        label: "Double VPN",     icon: "" },
+                            { group: "Onion_Over_VPN",    label: "Onion Over VPN", icon: "" },
+                            { group: "Obfuscated_Servers",label: "Obfuscated",     icon: "󰛡" }
                         ]
 
                         Repeater {
@@ -306,7 +306,7 @@ PanelWindow {
                             Rectangle {
                                 required property var modelData
                                 height: 34
-                                width: (parent.parent.width - 18) / 4
+                                width: (parent.parent.width - 12) / 3
                                 radius: 10
                                 property bool isActive: vpnPopup.activeVpn === "(" + modelData.label + ")"
                                 color: isActive
