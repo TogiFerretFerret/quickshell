@@ -19,7 +19,8 @@ PanelWindow {
     property int    level: 0              // 0 = country, 1 = city/server
     property string selectedCountry: ""
     property string selectedCity: ""
-    property string activeVpn: ""
+    property string activeVpn: ""        // connected hostname e.g. us1234.nordvpn.com
+    property string activeCountry: ""    // country name from index matching activeVpn
     property bool   connecting: false
     property string connectStatus: ""
 
@@ -83,38 +84,37 @@ PanelWindow {
     // ── Active VPN poll ───────────────────────────────────────────────────────
     Process {
         id: pollActive
-        command: ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show", "--active"]
+        command: ["nordvpn", "status"]
         stdout: StdioCollector {
             onStreamFinished: {
-                var lines = text.split("\n"); var found = "";
+                var lines = text.split("\n");
+                var connected = false; var hostname = "";
                 for (var i = 0; i < lines.length; i++) {
-                    var p = lines[i].split(":");
-                    if (p.length >= 2 && p[1] === "vpn" && p[0].indexOf("Nord ") === 0)
-                        { found = p[0]; break; }
+                    var line = lines[i].trim();
+                    if (line.indexOf("Status: Connected") === 0) connected = true;
+                    if (line.indexOf("Hostname: ") === 0) hostname = line.substring(10).trim();
                 }
-                vpnPopup.activeVpn  = found;
+                vpnPopup.activeVpn = connected ? hostname : "";
+                vpnPopup.activeCountry = vpnPopup.findCountryForHostname(vpnPopup.activeVpn);
                 vpnPopup.connecting = false;
             }
         }
     }
     Timer { interval: 4000; repeat: true; running: vpnPopup.showing; onTriggered: pollActive.running = true }
 
-    // ── Connect (on-demand download + import) ─────────────────────────────────
+    // ── Connect ───────────────────────────────────────────────────────────────
     Process {
         id: connectProc
         property string pendingHost: ""
-        property string pendingName: ""
-        command: ["/home/river/.local/bin/nordvpn-connect", pendingHost, pendingName]
+        property string pendingGroup: ""
+        command: ["/home/river/.local/bin/nordvpn-connect", pendingHost, pendingGroup]
         stdout: StdioCollector {
             onTextChanged: {
                 var lines = text.trim().split("\n");
                 var last = lines[lines.length - 1];
-                if      (last === "cleaning")    vpnPopup.connectStatus = "cleaning up...";
-                else if (last === "downloading") vpnPopup.connectStatus = "downloading...";
-                else if (last === "importing")   vpnPopup.connectStatus = "importing...";
-                else if (last === "configuring") vpnPopup.connectStatus = "configuring...";
-                else if (last === "connecting")  vpnPopup.connectStatus = "connecting...";
-                else if (last === "done") {
+                if (last === "connecting") {
+                    vpnPopup.connectStatus = "connecting...";
+                } else if (last === "done") {
                     vpnPopup.connectStatus = "";
                     pollActive.running = true;
                 } else if (last.indexOf("error:") === 0) {
@@ -136,11 +136,31 @@ PanelWindow {
 
     function connect(name, hostname) {
         if (connecting) return;
-        connectStatus = "cleaning up...";
+        connectStatus = "connecting...";
         connectProc.pendingHost = hostname;
-        connectProc.pendingName = name;
+        connectProc.pendingGroup = "";
         connectProc.running = true;
-        connecting = true; activeVpn = name;
+        connecting = true; activeVpn = hostname;
+    }
+
+    function connectSpecialty(group, label) {
+        if (connecting) return;
+        connectStatus = "connecting...";
+        connectProc.pendingHost = "";
+        connectProc.pendingGroup = group;
+        connectProc.running = true;
+        connecting = true; activeVpn = "(" + label + ")";
+    }
+
+    function findCountryForHostname(hostname) {
+        if (!hostname) return "";
+        for (var country in _indexServers) {
+            var servers = _indexServers[country];
+            for (var i = 0; i < servers.length; i++) {
+                if (servers[i].hostname === hostname) return country;
+            }
+        }
+        return "";
     }
     function disconnect() {
         if (activeVpn === "") return;
@@ -226,10 +246,10 @@ PanelWindow {
                 }
                 Text {
                     visible: !vpnPopup.connecting && vpnPopup.activeVpn !== "" && vpnPopup.connectStatus === ""
-                    text: "   " + vpnPopup.activeVpn
+                    text: "   " + vpnPopup.activeVpn + (vpnPopup.activeCountry ? "  (" + vpnPopup.activeCountry + ")" : "")
                     color: vpnPopup.green; font { pixelSize: 12; family: vpnPopup.fontFamily }
                     anchors.verticalCenter: parent.verticalCenter
-                    elide: Text.ElideRight; width: 260
+                    elide: Text.ElideRight; width: 320
                 }
                 Text {
                     visible: !vpnPopup.connecting && vpnPopup.activeVpn === "" && vpnPopup.connectStatus === ""
@@ -258,6 +278,73 @@ PanelWindow {
             Column {
                 visible: level === 0
                 width: parent.width; height: parent.height - 57; spacing: 10
+
+                // Specialty servers
+                Column {
+                    width: parent.width; spacing: 6
+
+                    Text {
+                        text: "SPECIALTY SERVERS"
+                        color: vpnPopup.dim
+                        font { pixelSize: 10; family: vpnPopup.fontFamily; bold: true }
+                        leftPadding: 2
+                    }
+
+                    Row {
+                        width: parent.width; spacing: 6
+
+                        property var specialties: [
+                            { group: "p2p",             label: "P2P",            icon: "" },
+                            { group: "double_vpn",      label: "Double VPN",     icon: "" },
+                            { group: "onion_over_vpn",  label: "Onion Over VPN", icon: "" },
+                            { group: "obfuscated",      label: "Obfuscated",     icon: "󰛡" }
+                        ]
+
+                        Repeater {
+                            model: parent.specialties
+
+                            Rectangle {
+                                required property var modelData
+                                height: 34
+                                width: (parent.parent.width - 18) / 4
+                                radius: 10
+                                property bool isActive: vpnPopup.activeVpn === "(" + modelData.label + ")"
+                                color: isActive
+                                    ? Qt.rgba(vpnPopup.green.r, vpnPopup.green.g, vpnPopup.green.b, 0.18)
+                                    : spMA.containsMouse ? Qt.rgba(vpnPopup.primary.r, vpnPopup.primary.g, vpnPopup.primary.b, 0.2)
+                                                        : Qt.rgba(vpnPopup.primary.r, vpnPopup.primary.g, vpnPopup.primary.b, 0.08)
+                                Behavior on color { ColorAnimation { duration: 100 } }
+                                border.width: 1
+                                border.color: isActive
+                                    ? Qt.rgba(vpnPopup.green.r, vpnPopup.green.g, vpnPopup.green.b, 0.4)
+                                    : Qt.rgba(vpnPopup.primary.r, vpnPopup.primary.g, vpnPopup.primary.b, 0.25)
+
+                                Column {
+                                    anchors.centerIn: parent; spacing: 1
+                                    Text {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        text: modelData.icon
+                                        color: isActive ? vpnPopup.green : vpnPopup.primary
+                                        font { pixelSize: 13; family: vpnPopup.fontFamily }
+                                    }
+                                    Text {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        text: modelData.label
+                                        color: isActive ? vpnPopup.green : vpnPopup.fg
+                                        font { pixelSize: 10; family: vpnPopup.fontFamily; bold: isActive }
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: spMA; anchors.fill: parent; hoverEnabled: true
+                                    onClicked: vpnPopup.connectSpecialty(modelData.group, modelData.label)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle { width: parent.width; height: 1; color: Qt.rgba(1,1,1,0.06) }
 
                 // Search
                 Rectangle {
@@ -294,7 +381,7 @@ PanelWindow {
                 }
 
                 Flickable {
-                    width: parent.width; height: parent.height - 70
+                    width: parent.width; height: parent.height - 160
                     contentHeight: countryGrid.implicitHeight
                     clip: true; boundsBehavior: Flickable.StopAtBounds
 
@@ -308,7 +395,7 @@ PanelWindow {
                             Rectangle {
                                 required property string modelData
                                 width: (countryGrid.width - 12) / 3; height: 42; radius: 10
-                                property bool isActive: vpnPopup.activeVpn.indexOf("Nord " + modelData) === 0
+                                property bool isActive: vpnPopup.activeCountry === modelData
                                 color: isActive
                                     ? Qt.rgba(vpnPopup.green.r, vpnPopup.green.g, vpnPopup.green.b, 0.18)
                                     : cMA.containsMouse ? Qt.rgba(1,1,1,0.1) : Qt.rgba(1,1,1,0.04)
@@ -436,7 +523,7 @@ PanelWindow {
                             Rectangle {
                                 required property var modelData
                                 width: parent.width; height: 44; radius: 10
-                                property bool isActive: modelData.name === vpnPopup.activeVpn
+                                property bool isActive: modelData.hostname === vpnPopup.activeVpn
                                 color: isActive
                                     ? Qt.rgba(vpnPopup.green.r, vpnPopup.green.g, vpnPopup.green.b, 0.15)
                                     : sMA.containsMouse ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.03)
