@@ -2,4 +2,7 @@
 nordvpn disconnect >/dev/null 2>&1
 nordvpn set obfuscate off >/dev/null 2>&1
 nordvpn set technology nordlynx >/dev/null 2>&1
+sudo ip link set wlp1s0f0 down >/dev/null 2>&1
+sudo macchanger -p wlp1s0f0 >/dev/null 2>&1
+sudo ip link set wlp1s0f0 up >/dev/null 2>&1
 echo "done"

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Monitors VPN connection health: checks status + reachability every 10s
+
+INTERVAL=10
+CHECK_URL="https://www.google.com"
+last_status=""
+
+check() {
+    status=$(nordvpn status 2>/dev/null | grep "^Status:" | awk '{print $2}')
+    if [ "$status" != "Connected" ]; then
+        echo "[$(date '+%H:%M:%S')] DROPPED — nordvpn status: ${status:-unknown}"
+        return 1
+    fi
+
+    if ! ping -c1 -W3 "$PING_HOST" >/dev/null 2>&1; then
+        echo "[$(date '+%H:%M:%S')] BLOCKED — connected but $PING_HOST unreachable"
+        return 1
+    fi
+
+    if [ "$status" != "$last_status" ]; then
+        hostname=$(nordvpn status 2>/dev/null | grep "^Hostname:" | awk '{print $2}')
+        echo "[$(date '+%H:%M:%S')] OK — $hostname"
+        last_status="$status"
+    fi
+}
+
+echo "[$(date '+%H:%M:%S')] Starting monitor (interval: ${INTERVAL}s, ping: $PING_HOST)"
+while true; do
+    check
+    sleep "$INTERVAL"
+done

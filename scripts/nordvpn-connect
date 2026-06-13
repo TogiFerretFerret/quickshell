@@ -9,6 +9,11 @@ if [ "$GROUP" = "Obfuscated_Servers" ]; then
     nordvpn set obfuscate on >/dev/null 2>&1
 fi
 
+echo "spoofing mac"
+sudo ip link set wlp1s0f0 down >/dev/null 2>&1
+sudo macchanger -r wlp1s0f0 >/dev/null 2>&1
+sudo ip link set wlp1s0f0 up >/dev/null 2>&1
+
 echo "connecting"
 ARGS=()
 if [ -n "$HOSTNAME" ]; then SERVER="${HOSTNAME%.nordvpn.com}"; ARGS+=("$SERVER")
